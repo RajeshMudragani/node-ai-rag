@@ -1,12 +1,7 @@
 import app from "./app.js";
 import { env } from "./config/env.config.js";
 import { logger } from "./logger/logger.js";
-import {
-    checkDatabaseConnection,
-    pool,
-} from "./config/db.config.js";
-
-const SHUTDOWN_TIMEOUT = 10_000;
+import { checkDatabaseConnection, pool } from "./config/db.config.js";
 
 const startServer = async () => {
     try {
@@ -29,58 +24,36 @@ const startServer = async () => {
             logger.info(`${signal} received. Starting graceful shutdown...`);
 
             const forceShutdownTimer = setTimeout(() => {
-                logger.error(
-                    "Graceful shutdown timeout exceeded. Forcing shutdown.",
-                );
-
+                logger.error("Graceful shutdown timeout exceeded. Forcing shutdown.");
                 server.closeAllConnections();
                 process.exit(1);
-            }, SHUTDOWN_TIMEOUT);
+            }, env.SHUTDOWN_TIMEOUT_MS);
 
             server.close(async (error) => {
                 clearTimeout(forceShutdownTimer);
 
                 if (error) {
-                    logger.error(
-                        { err: error },
-                        "Error while closing HTTP server",
-                    );
+                    logger.error({ err: error }, "Error while closing HTTP server");
                 } else {
                     logger.info("HTTP server closed");
                 }
 
                 try {
                     await pool.end();
-
                     logger.info("PostgreSQL connection pool closed");
-
                     process.exit(error ? 1 : 0);
                 } catch (error) {
-                    logger.error(
-                        { err: error },
-                        "Error closing PostgreSQL connection pool",
-                    );
-
+                    logger.error({ err: error }, "Error closing PostgreSQL connection pool");
                     process.exit(1);
                 }
             });
         };
 
-        process.once("SIGTERM", () => {
-            void shutdown("SIGTERM");
-        });
-
-        process.once("SIGINT", () => {
-            void shutdown("SIGINT");
-        });
+        process.once("SIGTERM", () => { void shutdown("SIGTERM"); });
+        process.once("SIGINT", () => { void shutdown("SIGINT"); });
     } catch (error) {
-        logger.error(
-            { err: error },
-            "Failed to start application",
-        );
-
+        logger.error({ err: error }, "Failed to start application");
         await pool.end();
-
         process.exit(1);
     }
 };

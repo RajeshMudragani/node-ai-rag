@@ -4,15 +4,10 @@ import { env } from "../../config/env.config.js";
 
 export class MinioService {
     async ensureBucketExists(): Promise<void> {
-        const exists = await minioClient.bucketExists(
-            env.MINIO_BUCKET,
-        );
+        const exists = await minioClient.bucketExists(env.MINIO_BUCKET);
 
         if (!exists) {
-            await minioClient.makeBucket(
-                env.MINIO_BUCKET,
-                "us-east-1",
-            );
+            await minioClient.makeBucket(env.MINIO_BUCKET, env.MINIO_REGION);
         }
     }
 

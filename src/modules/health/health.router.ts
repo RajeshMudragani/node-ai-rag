@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { dbReadinessController, HealthController } from "./health.controller.js";
+import { HealthController } from "./health.controller.js";
 
 const router = Router();
+const controller = new HealthController();
 
-router.get("/", HealthController);
-
-router.get("/db", dbReadinessController);
+router.get("/", controller.ping);
+router.get("/db", controller.dbReadiness);
 
 export default router;

@@ -1,10 +1,7 @@
 import { Chunk } from "./interfaces/chunk.interface.js";
+import { CHUNK_SIZE, CHUNK_OVERLAP, TOKEN_ESTIMATE_DIVISOR } from "./ingestion.constants.js";
 
 export class ChunkingService {
-    private readonly chunkSize = 1000;
-
-    private readonly chunkOverlap = 200;
-
     chunk(text: string): Chunk[] {
         const normalizedText = text
             .replace(/\r/g, "")
@@ -13,49 +10,29 @@ export class ChunkingService {
             .trim();
 
         const chunks: Chunk[] = [];
-
         let start = 0;
         let chunkIndex = 0;
 
         while (start < normalizedText.length) {
-            const end = Math.min(
-                start + this.chunkSize,
-                normalizedText.length,
-            );
-
-            const content = normalizedText
-                .slice(start, end)
-                .trim();
+            const end = Math.min(start + CHUNK_SIZE, normalizedText.length);
+            const content = normalizedText.slice(start, end).trim();
 
             chunks.push({
                 content,
                 chunkIndex,
-                tokenCount:
-                    this.estimateTokens(content),
+                tokenCount: this.estimateTokens(content),
             });
 
-            if (
-                end ===
-                normalizedText.length
-            ) {
-                break;
-            }
+            if (end === normalizedText.length) break;
 
-            start =
-                end -
-                this.chunkOverlap;
-
+            start = end - CHUNK_OVERLAP;
             chunkIndex++;
         }
 
         return chunks;
     }
 
-    private estimateTokens(
-        text: string,
-    ): number {
-        return Math.ceil(
-            text.length / 4,
-        );
+    private estimateTokens(text: string): number {
+        return Math.ceil(text.length / TOKEN_ESTIMATE_DIVISOR);
     }
 }

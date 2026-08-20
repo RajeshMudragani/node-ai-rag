@@ -5,12 +5,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 export const pool = new Pool({
     connectionString: env.DATABASE_URL,
-
-    max: 20,
-    min: 2,
-
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
+    max: env.DB_POOL_MAX,
+    min: env.DB_POOL_MIN,
+    idleTimeoutMillis: env.DB_IDLE_TIMEOUT_MS,
+    connectionTimeoutMillis: env.DB_CONNECTION_TIMEOUT_MS,
 });
 
 export const checkDatabaseConnection = async (): Promise<void> => {

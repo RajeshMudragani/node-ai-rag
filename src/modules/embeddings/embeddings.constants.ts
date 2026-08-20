@@ -1,5 +1,5 @@
-export const EMBEDDING_MODEL = "bge-m3";
+import { env } from "../../config/env.config.js";
 
-export const EXPECTED_EMBEDDING_DIMENSION = 1024;
-
-export const OLLAMA_EMBED_URL = "http://localhost:11434/api/embed";
+export const EMBEDDING_MODEL = env.OLLAMA_EMBED_MODEL;
+export const EXPECTED_EMBEDDING_DIMENSION = env.EMBEDDING_DIMENSIONS;
+export const OLLAMA_EMBED_URL = `${env.OLLAMA_BASE_URL}/api/embed`;

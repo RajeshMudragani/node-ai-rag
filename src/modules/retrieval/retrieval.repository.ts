@@ -1,31 +1,16 @@
 import { sql, eq } from "drizzle-orm";
 import { db } from "../../config/db.config.js";
 import { documentChunks } from "../../database/schema/document_chunks.schema.js";
+import { documents } from "../../database/schema/documents.schema.js";
 import { RetrievedChunk } from "./interfaces/retrieved-chunk.interface.js";
 import { DocumentChunkInput } from "./interfaces/document-chunk-input.interface.js";
-import { documents } from "../../database/schema/documents.schema.js";
 
 export class RetrievalRepository {
-    async similaritySearch(
-        embedding: number[],
-        limit: number,
-    ): Promise<RetrievedChunk[]> {
-
-        if (!Array.isArray(embedding)) {
-            throw new Error(
-                `Expected number[], got ${typeof embedding}`,
-            );
-        }
-
+    async similaritySearch(embedding: number[], limit: number): Promise<RetrievedChunk[]> {
         const queryVector = `[${embedding.join(",")}]`;
 
-        const similarity = sql<number>`
-            1 - (${documentChunks.embedding} <=> ${queryVector}::vector)
-        `;
-
-        const distance = sql<number>`
-            ${documentChunks.embedding} <=> ${queryVector}::vector
-        `;
+        const similarity = sql<number>`1 - (${documentChunks.embedding} <=> ${queryVector}::vector)`;
+        const distance = sql<number>`${documentChunks.embedding} <=> ${queryVector}::vector`;
 
         const rows = await db
             .select({
@@ -36,43 +21,21 @@ export class RetrievalRepository {
                 chunkIndex: documentChunks.chunkIndex,
                 pageNumber: documentChunks.pageNumber,
                 tokenCount: documentChunks.tokenCount,
-
                 similarity,
             })
             .from(documentChunks)
-            .innerJoin(
-                documents,
-                eq(
-                    documentChunks.documentId,
-                    documents.id,
-                ),
-            )
+            .innerJoin(documents, eq(documentChunks.documentId, documents.id))
             .orderBy(distance)
             .limit(limit);
 
-        return rows.map(row => ({
-            ...row,
-            similarity: Number(row.similarity),
-        }));
+        return rows.map(row => ({ ...row, similarity: Number(row.similarity) }));
     }
 
-    async addEmbeddings(
-        chunks: DocumentChunkInput[],
-    ): Promise<void> {
-        for (let i = 0; i < chunks.length; i++) {
-            try {
-                await db.insert(documentChunks).values(chunks[i]);
-            } catch (error) {
-                throw error;
-            }
-        }
+    async addEmbeddings(chunks: DocumentChunkInput[]): Promise<void> {
+        await Promise.all(chunks.map(chunk => db.insert(documentChunks).values(chunk)));
     }
 
-    async keywordSearch(
-        query: string,
-        limit: number,
-    ): Promise<RetrievedChunk[]> {
-
+    async keywordSearch(query: string, limit: number): Promise<RetrievedChunk[]> {
         const rows = await db.execute(sql`
             SELECT
                 dc.id,
@@ -87,14 +50,10 @@ export class RetrievalRepository {
                     plainto_tsquery('english', ${query})
                 ) AS "keywordScore"
             FROM document_chunks dc
-            INNER JOIN documents d
-                ON d.id = dc.document_id
-            WHERE
-                to_tsvector('english', dc.content)
-                @@
-                plainto_tsquery('english', ${query})
+            INNER JOIN documents d ON d.id = dc.document_id
+            WHERE to_tsvector('english', dc.content) @@ plainto_tsquery('english', ${query})
             ORDER BY "keywordScore" DESC
-            LIMIT ${limit};
+            LIMIT ${limit}
         `);
 
         return rows.rows.map(row => ({
@@ -110,5 +69,4 @@ export class RetrievalRepository {
             hybridScore: 0,
         })) as RetrievedChunk[];
     }
-
 }

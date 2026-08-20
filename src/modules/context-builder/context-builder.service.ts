@@ -1,30 +1,21 @@
 import { RetrievedChunk } from "../retrieval/interfaces/retrieved-chunk.interface.js";
 import { ContextCleanerService } from "./context-cleaner.service.js";
-
 import { BuiltContext } from "./interfaces/built-context.interface.js";
-
-const MAX_CONTEXT_CHUNKS = 5;
-const MAX_CONTEXT_LENGTH = 8000;
+import {
+    MAX_CONTEXT_CHUNKS,
+    MAX_CONTEXT_LENGTH,
+    CONTEXT_SEPARATOR,
+} from "./context-builder.constants.js";
 
 export class ContextBuilderService {
     private readonly cleaner = new ContextCleanerService();
 
-    build(
-        chunks: RetrievedChunk[],
-    ): BuiltContext {
-
+    build(chunks: RetrievedChunk[]): BuiltContext {
         const context = chunks
             .slice(0, MAX_CONTEXT_CHUNKS)
-            .map(chunk =>
-                this.cleaner.clean(
-                    chunk.content,
-                ),
-            )
-            .join("\n\n---\n\n")
-            .slice(
-                0,
-                MAX_CONTEXT_LENGTH,
-            );
+            .map(chunk => this.cleaner.clean(chunk.content))
+            .join(CONTEXT_SEPARATOR)
+            .slice(0, MAX_CONTEXT_LENGTH);
 
         const sources = chunks.map(chunk => ({
             documentId: chunk.documentId,
@@ -35,9 +26,6 @@ export class ContextBuilderService {
             hybridScore: chunk.hybridScore,
         }));
 
-        return {
-            context,
-            sources,
-        };
+        return { context, sources };
     }
 }

@@ -5,7 +5,8 @@ import { ExtractionService } from "./extraction.service.js";
 import { ChunkingService } from "./chunking.service.js";
 import { EmbeddingsService } from "../embeddings/embeddings.service.js";
 import { RetrievalRepository } from "../retrieval/retrieval.repository.js";
-import { sanitizeText } from "../../utils/sanatizer.js";
+import { sanitizeText } from "../../common/utils/index.js";
+import { NotFoundError } from "../../common/errors/index.js";
 
 export class IngestionService {
     private readonly documentsRepository = new DocumentsRepository();
@@ -15,63 +16,33 @@ export class IngestionService {
     private readonly embeddingsService = new EmbeddingsService();
     private readonly retrievalRepository = new RetrievalRepository();
 
-    async process(
-        documentId: string,
-    ) {
+    async process(documentId: string) {
+        const document = await this.documentsRepository.findById(documentId);
+        if (!document) throw new NotFoundError("Document");
 
-        const document = await this.documentsRepository.findById(
-            documentId,
-        );
-
-        if (!document) {
-            throw new Error(
-                "Document not found",
-            );
-        }
-
-        await this.documentsRepository.updateStatus(
-            documentId,
-            DOCUMENT_STATUS.PROCESSING,
-        );
+        await this.documentsRepository.updateStatus(documentId, DOCUMENT_STATUS.PROCESSING);
 
         try {
-
-            const buffer = await this.minioService.downloadObjectAsBuffer(
-                document.storageKey,
-            );
-
-            const extractionResult = await this.extractionService.extractPdf(
-                buffer,
-            );
-
+            const buffer = await this.minioService.downloadObjectAsBuffer(document.storageKey);
+            const extractionResult = await this.extractionService.extractPdf(buffer);
             const chunks = this.chunkingService.chunk(extractionResult.text);
 
-            const chunkInputs = [];
-
-            for (let i = 0; i < chunks.length; i++) {
-
-                const embeddingResult = await this.embeddingsService.generate(
-                    chunks[i].content,
-                );
-
-                chunkInputs.push({
-                    documentId,
-                    content: sanitizeText(chunks[i].content),
-                    chunkIndex: chunks[i].chunkIndex,
-                    pageNumber: null,
-                    tokenCount: chunks[i].tokenCount,
-                    embedding: embeddingResult.embedding,
-                });
-            }
-
-            await this.retrievalRepository.addEmbeddings(
-                chunkInputs,
+            const chunkInputs = await Promise.all(
+                chunks.map(async (chunk) => {
+                    const embeddingResult = await this.embeddingsService.generate(chunk.content);
+                    return {
+                        documentId,
+                        content: sanitizeText(chunk.content),
+                        chunkIndex: chunk.chunkIndex,
+                        pageNumber: null,
+                        tokenCount: chunk.tokenCount,
+                        embedding: embeddingResult.embedding,
+                    };
+                }),
             );
 
-            await this.documentsRepository.updateStatus(
-                documentId,
-                DOCUMENT_STATUS.READY,
-            );
+            await this.retrievalRepository.addEmbeddings(chunkInputs);
+            await this.documentsRepository.updateStatus(documentId, DOCUMENT_STATUS.READY);
 
             return {
                 documentId,
@@ -79,11 +50,7 @@ export class IngestionService {
                 status: DOCUMENT_STATUS.READY,
             };
         } catch (error) {
-            await this.documentsRepository.updateStatus(
-                documentId,
-                DOCUMENT_STATUS.FAILED,
-            );
-
+            await this.documentsRepository.updateStatus(documentId, DOCUMENT_STATUS.FAILED);
             throw error;
         }
     }

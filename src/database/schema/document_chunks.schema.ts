@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { documents } from "./documents.schema.js";
+import { env } from "../../config/env.config.js";
 
 export const documentChunks = pgTable("document_chunks", {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -27,7 +28,7 @@ export const documentChunks = pgTable("document_chunks", {
     tokenCount: integer("token_count"),
 
     embedding: vector("embedding", {
-        dimensions: 1024,
+        dimensions: env.EMBEDDING_DIMENSIONS,
     }),
 
     metadata: jsonb("metadata"),

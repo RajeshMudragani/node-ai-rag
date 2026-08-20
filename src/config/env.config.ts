@@ -10,6 +10,15 @@ const envSchema = z.object({
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]),
 
     DATABASE_URL: z.string().min(1),
+    DB_POOL_MAX: z.coerce.number().int().positive().default(20),
+    DB_POOL_MIN: z.coerce.number().int().nonnegative().default(2),
+    DB_IDLE_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+    DB_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
+
+    OLLAMA_BASE_URL: z.string().url(),
+    OLLAMA_LLM_MODEL: z.string().min(1),
+    OLLAMA_EMBED_MODEL: z.string().min(1),
+    EMBEDDING_DIMENSIONS: z.coerce.number().int().positive(),
 
     MINIO_ENDPOINT: z.string(),
     MINIO_PORT: z.coerce.number(),
@@ -17,7 +26,12 @@ const envSchema = z.object({
     MINIO_SECRET_KEY: z.string(),
     MINIO_BUCKET: z.string(),
     MINIO_USE_SSL: z.enum(["true", "false"]).transform((value) => value === "true"),
+    MINIO_REGION: z.string().default("us-east-1"),
 
+    API_PREFIX: z.string().default("/api/v1"),
+    SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+    REQUEST_BODY_LIMIT: z.string().default("50mb"),
+    UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(100),
 });
 
 
