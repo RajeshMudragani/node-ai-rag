@@ -1,0 +1,8 @@
+export const DOCUMENT_STATUS = {
+    UPLOADED: "UPLOADED",
+    PROCESSING: "PROCESSING",
+    READY: "READY",
+    FAILED: "FAILED",
+} as const;
+
+export type DocumentStatus = (typeof DOCUMENT_STATUS)[keyof typeof DOCUMENT_STATUS];
