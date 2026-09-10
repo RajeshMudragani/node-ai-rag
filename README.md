@@ -144,18 +144,18 @@ This is what happens every time a user asks a question.
 
 ## Tech Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Runtime | Node.js (ESM) | Server runtime |
-| Language | TypeScript 7 | Type safety across the entire codebase |
-| Framework | Express 5 | HTTP server and routing |
-| ORM | Drizzle ORM | Type-safe PostgreSQL queries |
-| Database | PostgreSQL + pgvector | Stores documents, chunks, and vector embeddings |
-| Object Storage | MinIO | Stores raw uploaded files (S3-compatible) |
-| LLM & Embeddings | Ollama | Runs LLM (llama3.2) and embedding model (bge-m3) locally |
-| Validation | Zod v4 | Runtime schema validation for all request bodies and env vars |
-| Logging | Pino + pino-http | Structured JSON logging with request tracing |
-| Security | Helmet + CORS | HTTP security headers |
+| Layer            | Technology            | Purpose                                                       |
+| ---------------- | --------------------- | ------------------------------------------------------------- |
+| Runtime          | Node.js (ESM)         | Server runtime                                                |
+| Language         | TypeScript 7          | Type safety across the entire codebase                        |
+| Framework        | Express 5             | HTTP server and routing                                       |
+| ORM              | Drizzle ORM           | Type-safe PostgreSQL queries                                  |
+| Database         | PostgreSQL + pgvector | Stores documents, chunks, and vector embeddings               |
+| Object Storage   | MinIO                 | Stores raw uploaded files (S3-compatible)                     |
+| LLM & Embeddings | Ollama                | Runs LLM (llama3.2) and embedding model (bge-m3) locally      |
+| Validation       | Zod v4                | Runtime schema validation for all request bodies and env vars |
+| Logging          | Pino + pino-http      | Structured JSON logging with request tracing                  |
+| Security         | Helmet + CORS         | HTTP security headers                                         |
 
 ---
 
@@ -250,7 +250,7 @@ All configuration is driven by environment variables. The application validates 
 
 ```env
 # ─── Server ───────────────────────────────────────────────────────────
-PORT=7892                          # Port the HTTP server listens on
+PORT=3000                          # Port the HTTP server listens on
 NODE_ENV=development               # development | test | production
 LOG_LEVEL=info                     # fatal | error | warn | info | debug | trace | silent
 API_PREFIX=/api/v1                 # Global prefix for all routes
@@ -293,10 +293,10 @@ All routes are prefixed with `/api/v1`.
 
 ### Health
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/v1/health` | Liveness check — returns `200 OK` if server is up |
-| `GET` | `/api/v1/health/db` | Readiness check — returns `200` if DB is reachable, `503` if not |
+| Method  | Endpoint              | Description                                                          |
+| ------- | --------------------- | -------------------------------------------------------------------- |
+| `GET` | `/api/v1/health`    | Liveness check — returns`200 OK` if server is up                  |
+| `GET` | `/api/v1/health/db` | Readiness check — returns`200` if DB is reachable, `503` if not |
 
 ---
 
@@ -309,13 +309,14 @@ POST /api/v1/documents/upload
 Content-Type: multipart/form-data
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `file` | File | Yes | The document to upload |
+| Field    | Type | Required | Description            |
+| -------- | ---- | -------- | ---------------------- |
+| `file` | File | Yes      | The document to upload |
 
 Supported file types: `application/pdf`, `text/plain`, `text/markdown`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
 
 **Response `201`**
+
 ```json
 {
   "success": true,
@@ -343,6 +344,7 @@ POST /api/v1/documents/:id/process
 ```
 
 This is an async-style operation that runs the full ingestion pipeline:
+
 1. Downloads the file from MinIO
 2. Extracts text (PDF parsing)
 3. Splits into overlapping chunks
@@ -350,6 +352,7 @@ This is an async-style operation that runs the full ingestion pipeline:
 5. Stores all chunks + vectors in PostgreSQL
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -372,6 +375,7 @@ GET /api/v1/documents
 ```
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -394,7 +398,7 @@ GET /api/v1/documents
 GET /api/v1/documents/:id
 ```
 
-**Response `200`** — returns the document record  
+**Response `200`** — returns the document record
 **Response `404`** — `{ "success": false, "error": { "code": "NOT_FOUND", "message": "Document not found" } }`
 
 ---
@@ -419,12 +423,13 @@ Content-Type: application/json
 }
 ```
 
-| Field | Type | Required | Default | Max |
-|---|---|---|---|---|
-| `query` | string | Yes | — | — |
-| `limit` | number | No | `5` | `20` |
+| Field     | Type   | Required | Default | Max    |
+| --------- | ------ | -------- | ------- | ------ |
+| `query` | string | Yes      | —      | —     |
+| `limit` | number | No       | `5`   | `20` |
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -462,6 +467,7 @@ Content-Type: application/json
 ```
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -501,22 +507,23 @@ Content-Type: application/json
 }
 ```
 
-| Field | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `question` | string | Yes | — | The user's question |
-| `topK` | number | No | `5` | Number of document chunks to retrieve (max 20) |
-| `promptType` | string | No | `default` | `default` \| `strict` \| `concise` |
-| `conversationId` | UUID | No | auto-generated | Pass the ID from a previous response to continue a conversation |
+| Field              | Type   | Required | Default        | Description                                                     |
+| ------------------ | ------ | -------- | -------------- | --------------------------------------------------------------- |
+| `question`       | string | Yes      | —             | The user's question                                             |
+| `topK`           | number | No       | `5`          | Number of document chunks to retrieve (max 20)                  |
+| `promptType`     | string | No       | `default`    | `default` \| `strict` \| `concise`                        |
+| `conversationId` | UUID   | No       | auto-generated | Pass the ID from a previous response to continue a conversation |
 
 #### Prompt Types
 
-| Type | Behaviour | Best For |
-|---|---|---|
-| `default` | Helpful assistant, uses context but can supplement with general knowledge | General Q&A |
-| `strict` | Answers ONLY from provided context. Returns evidence quotes. Refuses if answer not found | Compliance, legal, auditable use cases |
-| `concise` | Returns bullet-point answers only | Quick lookups, summaries |
+| Type        | Behaviour                                                                                | Best For                               |
+| ----------- | ---------------------------------------------------------------------------------------- | -------------------------------------- |
+| `default` | Helpful assistant, uses context but can supplement with general knowledge                | General Q&A                            |
+| `strict`  | Answers ONLY from provided context. Returns evidence quotes. Refuses if answer not found | Compliance, legal, auditable use cases |
+| `concise` | Returns bullet-point answers only                                                        | Quick lookups, summaries               |
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -540,14 +547,14 @@ Content-Type: application/json
 
 ```bash
 # First message — no conversationId needed
-curl -X POST http://localhost:7892/api/v1/chat \
+curl -X POST http://localhost:3000/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{ "question": "What are React Hooks?" }'
 
 # Response includes: "conversationId": "abc-123"
 
 # Follow-up — pass the conversationId back
-curl -X POST http://localhost:7892/api/v1/chat \
+curl -X POST http://localhost:3000/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{ "question": "Tell me more about useEffect", "conversationId": "abc-123" }'
 
@@ -574,6 +581,7 @@ Content-Type: application/json
 ```
 
 **Response `200`**
+
 ```json
 {
   "success": true,
@@ -616,16 +624,16 @@ Validation errors (invalid request body) include a `details` array:
 }
 ```
 
-| HTTP Status | Code | Meaning |
-|---|---|---|
-| `200` | — | Success |
-| `201` | — | Resource created |
-| `400` | `BAD_REQUEST` | Missing required field (e.g. no file uploaded) |
-| `404` | `NOT_FOUND` | Resource does not exist |
-| `409` | `CONFLICT` | Resource already exists |
-| `422` | `VALIDATION_ERROR` | Request body failed schema validation |
-| `500` | `INTERNAL_SERVER_ERROR` | Unexpected server error |
-| `503` | — | Dependency unavailable (e.g. DB down) |
+| HTTP Status | Code                      | Meaning                                        |
+| ----------- | ------------------------- | ---------------------------------------------- |
+| `200`     | —                        | Success                                        |
+| `201`     | —                        | Resource created                               |
+| `400`     | `BAD_REQUEST`           | Missing required field (e.g. no file uploaded) |
+| `404`     | `NOT_FOUND`             | Resource does not exist                        |
+| `409`     | `CONFLICT`              | Resource already exists                        |
+| `422`     | `VALIDATION_ERROR`      | Request body failed schema validation          |
+| `500`     | `INTERNAL_SERVER_ERROR` | Unexpected server error                        |
+| `503`     | —                        | Dependency unavailable (e.g. DB down)          |
 
 ---
 
@@ -709,10 +717,10 @@ With overlap:
 
 Neither pure vector search nor pure keyword search is perfect on its own:
 
-| | Vector Search | Keyword Search |
-|---|---|---|
+|          | Vector Search                                                | Keyword Search                                   |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------ |
 | Strength | Finds semantically similar content even with different words | Exact term matching, great for names, codes, IDs |
-| Weakness | Can miss exact matches for specific terms | Misses paraphrased or synonymous content |
+| Weakness | Can miss exact matches for specific terms                    | Misses paraphrased or synonymous content         |
 
 This system combines both using a weighted score:
 
@@ -754,17 +762,17 @@ The system supports three prompt templates that change how the LLM responds:
 
 These are the key constants that control retrieval and generation quality. All are in their respective `*.constants.ts` files and driven by environment variables where appropriate.
 
-| Constant | Location | Default | Effect of increasing | Effect of decreasing |
-|---|---|---|---|---|
-| `CHUNK_SIZE` | `ingestion.constants.ts` | `1000` chars | More context per chunk, fewer chunks | Less context per chunk, more precise retrieval |
-| `CHUNK_OVERLAP` | `ingestion.constants.ts` | `200` chars | Better boundary coverage, more storage | Risk of losing context at boundaries |
-| `MIN_SIMILARITY` | `retrieval.constants.ts` | `0.55` | Fewer but more relevant vector results | More results but potentially noisy |
-| `VECTOR_WEIGHT` | `retrieval.constants.ts` | `0.6` | More semantic, less keyword influence | More keyword, less semantic influence |
-| `KEYWORD_WEIGHT` | `retrieval.constants.ts` | `0.4` | More keyword, less semantic influence | More semantic, less keyword influence |
-| `MAX_CONTEXT_CHUNKS` | `context-builder.constants.ts` | `5` | More context for LLM, higher token cost | Less context, faster and cheaper |
-| `MAX_CONTEXT_LENGTH` | `context-builder.constants.ts` | `8000` chars | More context passed to LLM | Less context, fits smaller models |
-| `DEFAULT_TOP_K` | `retrieval.constants.ts` | `5` | More candidates retrieved | Fewer candidates |
-| `PROMPT_HISTORY_LIMIT` | `chat.constants.ts` | `10` messages | Longer memory, higher token cost | Shorter memory |
+| Constant                 | Location                         | Default         | Effect of increasing                    | Effect of decreasing                           |
+| ------------------------ | -------------------------------- | --------------- | --------------------------------------- | ---------------------------------------------- |
+| `CHUNK_SIZE`           | `ingestion.constants.ts`       | `1000` chars  | More context per chunk, fewer chunks    | Less context per chunk, more precise retrieval |
+| `CHUNK_OVERLAP`        | `ingestion.constants.ts`       | `200` chars   | Better boundary coverage, more storage  | Risk of losing context at boundaries           |
+| `MIN_SIMILARITY`       | `retrieval.constants.ts`       | `0.55`        | Fewer but more relevant vector results  | More results but potentially noisy             |
+| `VECTOR_WEIGHT`        | `retrieval.constants.ts`       | `0.6`         | More semantic, less keyword influence   | More keyword, less semantic influence          |
+| `KEYWORD_WEIGHT`       | `retrieval.constants.ts`       | `0.4`         | More keyword, less semantic influence   | More semantic, less keyword influence          |
+| `MAX_CONTEXT_CHUNKS`   | `context-builder.constants.ts` | `5`           | More context for LLM, higher token cost | Less context, faster and cheaper               |
+| `MAX_CONTEXT_LENGTH`   | `context-builder.constants.ts` | `8000` chars  | More context passed to LLM              | Less context, fits smaller models              |
+| `DEFAULT_TOP_K`        | `retrieval.constants.ts`       | `5`           | More candidates retrieved               | Fewer candidates                               |
+| `PROMPT_HISTORY_LIMIT` | `chat.constants.ts`            | `10` messages | Longer memory, higher token cost        | Shorter memory                                 |
 
 > **Rule of thumb:** If answers are missing relevant information → increase `MAX_CONTEXT_CHUNKS` or `DEFAULT_TOP_K`. If answers are noisy or off-topic → increase `MIN_SIMILARITY` or decrease `VECTOR_WEIGHT`.
 
@@ -802,11 +810,11 @@ Every HTTP request is automatically logged with a unique `x-request-id` header. 
 
 ```bash
 # Development output (pretty-printed)
-[10:30:00] INFO: Server is running on port 7892
+[10:30:00] INFO: Server is running on port 3000
 [10:30:01] INFO: POST /api/v1/documents/upload 201 - 142ms
 
 # Production output (JSON)
-{"level":30,"time":"2025-01-15T10:30:00.000Z","msg":"Server is running on port 7892"}
+{"level":30,"time":"2025-01-15T10:30:00.000Z","msg":"Server is running on port 3000"}
 ```
 
 ---

@@ -15,6 +15,13 @@
       "when": 1787033963752,
       "tag": "0001_aberrant_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787555224609,
+      "tag": "0002_rainy_warlock",
+      "breakpoints": true
     }
   ]
 }
