@@ -3,6 +3,7 @@ import {
     uuid,
     timestamp,
     jsonb,
+    varchar,
 } from "drizzle-orm/pg-core";
 
 export const conversations = pgTable(
@@ -10,6 +11,13 @@ export const conversations = pgTable(
     {
         id: uuid("id")
             .primaryKey(),
+
+        title: varchar(
+            "title",
+            {
+                length: 255,
+            },
+        ),
 
         metadata: jsonb("metadata"),
 

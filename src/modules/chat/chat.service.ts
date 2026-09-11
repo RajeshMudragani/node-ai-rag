@@ -8,7 +8,9 @@ import {
     ConversationService,
 } from "../conversation/index.js";
 
-import { QueryRewriterService } from "../query-rewriter/query-rewriter.service.js";
+import {
+    QueryRewriterService,
+} from "../query-rewriter/query-rewriter.service.js";
 
 export class ChatService {
 
@@ -25,55 +27,53 @@ export class ChatService {
         conversationId?: string,
     ): Promise<ChatResponse> {
 
-        const currentConversationId =
-            await this.conversationService
-                .ensureConversation(
-                    conversationId,
-                );
+        const isNewConversation = !conversationId;
 
-        const history =
-            await this.conversationService
-                .getHistory(
-                    currentConversationId,
-                );
+        const currentConversationId = await this.conversationService.ensureConversation(
+            conversationId,
+        );
 
-        const rewrittenQuery =
-            await this.queryRewriter.rewrite(
-                question,
-                history,
-            );
+        const history = await this.conversationService.getHistory(
+            currentConversationId,
+        );
 
-        const builtContext =
-            await this.retrievalService
-                .retrieveContext(
-                    rewrittenQuery,
-                    topK,
-                );
+        const rewrittenQuery = await this.queryRewriter.rewrite(
+            question,
+            history,
+        );
 
-        const prompt =
-            this.promptBuilder.build(
-                question,
-                builtContext.context,
-                history,
-                promptType,
-            );
+        const builtContext = await this.retrievalService.retrieveContext(
+            rewrittenQuery,
+            topK,
+        );
 
-        const answer =
-            await this.ollamaService.generate(
-                prompt,
-            );
+        const prompt = this.promptBuilder.build(
+            question,
+            builtContext.context,
+            history,
+            promptType,
+        );
 
-        await this.conversationService
-            .addUserMessage(
+        const answer = await this.ollamaService.generate(
+            prompt,
+        );
+
+        await this.conversationService.addUserMessage(
+            currentConversationId,
+            question,
+        );
+
+        await this.conversationService.addAssistantMessage(
+            currentConversationId,
+            answer,
+        );
+
+        if (isNewConversation) {
+            await this.conversationService.generateAndSaveTitle(
                 currentConversationId,
                 question,
             );
-
-        await this.conversationService
-            .addAssistantMessage(
-                currentConversationId,
-                answer,
-            );
+        }
 
         return {
             answer,
