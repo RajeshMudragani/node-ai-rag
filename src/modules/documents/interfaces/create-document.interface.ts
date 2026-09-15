@@ -6,4 +6,5 @@ export interface CreateDocumentInput {
     storageKey: string;
     status: DocumentStatus;
     metadata?: Record<string, unknown>;
+    collectionId: string | null;
 }

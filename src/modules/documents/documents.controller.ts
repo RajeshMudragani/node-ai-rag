@@ -9,11 +9,34 @@ export class DocumentsController {
     private readonly documentsService = new DocumentsService();
     private readonly ingestionService = new IngestionService();
 
-    upload = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    upload = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> => {
+
         try {
-            if (!req.file) throw new BadRequestError("File is required");
-            const document = await this.documentsService.upload(req.file);
-            res.status(HTTP_STATUS.CREATED).json(successResponse(document));
+
+            if (!req.file) {
+                throw new BadRequestError(
+                    "File is required",
+                );
+            }
+
+            const collectionName = req.body.collectionName;
+
+            const document = await this.documentsService.upload(
+                req.file,
+                collectionName,
+            );
+
+            res.status(
+                HTTP_STATUS.CREATED,
+            ).json(
+                successResponse(
+                    document,
+                ),
+            );
         } catch (error) {
             next(error);
         }

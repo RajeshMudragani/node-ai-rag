@@ -8,6 +8,4 @@ const controller = new RetrievalController();
 router.post("/search", controller.search);
 router.post("/context", controller.context);
 
-
-
-export { router as retrievalRouter };
+export default router;

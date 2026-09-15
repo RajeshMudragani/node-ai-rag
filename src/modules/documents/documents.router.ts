@@ -26,4 +26,4 @@ router.get("/", controller.findAll);
 router.get("/:id", controller.findById);
 router.post("/:id/process", controller.process);
 
-export { router as documentsRouter };
+export default router;

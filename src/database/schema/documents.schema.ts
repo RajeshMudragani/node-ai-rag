@@ -6,6 +6,7 @@ import {
     jsonb,
     timestamp,
 } from "drizzle-orm/pg-core";
+import { collections } from "./collections.schema.js";
 
 export const documents = pgTable("documents", {
     id: uuid("id").defaultRandom().primaryKey(),
@@ -33,4 +34,15 @@ export const documents = pgTable("documents", {
     updatedAt: timestamp("updated_at", {
         withTimezone: true,
     }).defaultNow().notNull(),
+
+    collectionId: uuid(
+        "collection_id",
+    )
+    .references(
+        () => collections.id,
+        {
+            onDelete: "restrict",
+        },
+    )
+
 });

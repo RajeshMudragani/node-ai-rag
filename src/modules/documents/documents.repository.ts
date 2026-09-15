@@ -2,21 +2,20 @@ import { eq } from "drizzle-orm";
 import { db } from "../../config/db.config.js";
 import { documents } from "../../database/schema/documents.schema.js";
 import { CreateDocumentInput } from "./interfaces/create-document.interface.js";
-
+import { collections } from "../../database/schema/collections.schema.js";
 export class DocumentsRepository {
     async create(
         input: CreateDocumentInput,
     ) {
-        const [document] = await db
-            .insert(documents)
-            .values({
-                filename: input.filename,
-                mimeType: input.mimeType,
-                storageKey: input.storageKey,
-                status: input.status,
-                metadata: input.metadata,
-            })
-            .returning();
+        const [document] = await db.insert(documents).values({
+            filename: input.filename,
+            mimeType: input.mimeType,
+            storageKey: input.storageKey,
+            status: input.status,
+            metadata: input.metadata,
+            collectionId: input.collectionId,
+        })
+        .returning();
 
         return document;
     }
@@ -62,5 +61,23 @@ export class DocumentsRepository {
         return db
             .select()
             .from(documents);
+    }
+
+    async findByName(
+        name: string,
+    ) {
+
+        const result = await db
+            .select()
+            .from(collections)
+            .where(
+                eq(
+                    collections.name,
+                    name,
+                ),
+            )
+            .limit(1);
+
+        return result[0] ?? null;
     }
 }

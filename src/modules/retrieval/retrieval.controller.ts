@@ -7,21 +7,64 @@ import { successResponse } from "../../common/types/index.js";
 export class RetrievalController {
     private readonly retrievalService = new RetrievalService();
 
-    search = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    search = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> => {
+
         try {
+
             const dto = SearchDtoSchema.parse(req.body);
-            const results = await this.retrievalService.search(dto.query, dto.limit);
-            res.status(HTTP_STATUS.OK).json(successResponse(results));
+
+            console.log(
+                "DTO:",
+                dto,
+            );
+
+            const results = await this.retrievalService.search(
+                dto.query,
+                dto.limit,
+                dto.collectionName,
+            );
+
+            res.status(
+                HTTP_STATUS.OK,
+            ).json(
+                successResponse(
+                    results,
+                ),
+            );
+
         } catch (error) {
             next(error);
         }
     };
 
-    context = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    context = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> => {
+
         try {
+
             const dto = SearchDtoSchema.parse(req.body);
-            const context = await this.retrievalService.retrieveContext(dto.query, dto.limit);
-            res.status(HTTP_STATUS.OK).json(successResponse(context));
+
+            const context = await this.retrievalService.retrieveContext(
+                dto.query,
+                dto.limit,
+                dto.collectionName,
+            );
+
+            res.status(
+                HTTP_STATUS.OK,
+            ).json(
+                successResponse(
+                    context,
+                ),
+            );
+
         } catch (error) {
             next(error);
         }

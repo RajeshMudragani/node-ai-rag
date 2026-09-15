@@ -6,4 +6,4 @@ const controller = new EmbeddingsController();
 
 router.post("/generate", controller.generate);
 
-export { router as embeddingsRouter };
+export default router;

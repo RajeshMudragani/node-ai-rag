@@ -9,31 +9,37 @@ import {
     VECTOR_WEIGHT,
     KEYWORD_WEIGHT,
 } from "./retrieval.constants.js";
+import { CollectionsService } from "../collections/collections.service.js";
 
 export class RetrievalService {
     private readonly embeddingsService = new EmbeddingsService();
     private readonly repository = new RetrievalRepository();
     private readonly contextBuilder = new ContextBuilderService();
+    private readonly collectionsService = new CollectionsService();
 
     async search(
         query: string,
         limit: number,
+        collectionName?: string,
     ): Promise<RetrievedChunk[]> {
 
         return this.hybridSearch(
             query,
             limit,
+            collectionName,
         );
     }
 
     async retrieveContext(
         query: string,
         limit: number,
+        collectionName?: string,
     ): Promise<BuiltContext> {
 
         const chunks = await this.hybridSearch(
             query,
             limit,
+            collectionName,
         );
 
         return this.contextBuilder.build(
@@ -44,7 +50,27 @@ export class RetrievalService {
     private async hybridSearch(
         query: string,
         limit: number,
+        collectionName?: string,
     ): Promise<RetrievedChunk[]> {
+
+        let collectionId: string | undefined;
+
+        if (collectionName) {
+            const collection = await this.collectionsService.findByName(
+                collectionName,
+            );
+            collectionId = collection?.id;
+        }
+
+        console.log(
+            "Collection Name:",
+            collectionName,
+        );
+
+        console.log(
+            "Collection ID:",
+            collectionId,
+        );
 
         const embeddingResult = await this.embeddingsService.generate(
             query,
@@ -55,6 +81,7 @@ export class RetrievalService {
                 await this.repository.similaritySearch(
                     embeddingResult.embedding,
                     limit,
+                    collectionId,
                 )
             ).filter(
                 chunk => chunk.similarity >= MIN_SIMILARITY,
@@ -63,6 +90,7 @@ export class RetrievalService {
         const keywordResults = await this.repository.keywordSearch(
             query,
             limit,
+            collectionId,
         );
 
         return this.mergeResults(
@@ -83,14 +111,10 @@ export class RetrievalService {
         
         const keywordScores =
             keywordResults.map(
-                chunk =>
-                    chunk.keywordScore ?? 0,
+                chunk => chunk.keywordScore ?? 0,
             );
 
-        const maxKeywordScore =
-            keywordScores.length > 0
-                ? Math.max(...keywordScores)
-                : 0;
+        const maxKeywordScore = keywordScores.length > 0 ? Math.max(...keywordScores) : 0;
 
         vectorResults.forEach(chunk => {
 
@@ -99,9 +123,7 @@ export class RetrievalService {
             merged.set(key, {
                 ...chunk,
                 keywordScore: 0,
-                hybridScore:
-                    chunk.similarity *
-                    VECTOR_WEIGHT,
+                hybridScore: chunk.similarity * VECTOR_WEIGHT,
             });
         });
 
@@ -112,8 +134,7 @@ export class RetrievalService {
             const normalizedKeywordScore =
                 maxKeywordScore > 0
                     ? (
-                        (chunk.keywordScore ?? 0)
-                        / maxKeywordScore
+                        (chunk.keywordScore ?? 0) / maxKeywordScore
                     )
                     : 0;
 
