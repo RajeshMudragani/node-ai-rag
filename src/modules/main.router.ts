@@ -6,6 +6,8 @@ import documentsRouter from "./documents/documents.router.js";
 import chatRouter from "./chat/chat.router.js";
 import conversationRouter from "./conversation/conversation.router.js";
 import collectionsRouter from "./collections/collections.router.js";
+import metadataRouter from "./metadata/metadata.router.js";
+
 const router = Router();
 
 router.use("/health", healthRouter);
@@ -15,5 +17,6 @@ router.use("/documents", documentsRouter);
 router.use("/chat", chatRouter);
 router.use("/conversations", conversationRouter );
 router.use("/collections", collectionsRouter);
+router.use("/", metadataRouter);
 
 export default router;

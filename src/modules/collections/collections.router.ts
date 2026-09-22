@@ -9,6 +9,8 @@ router.post("/", controller.create);
 
 router.get("/", controller.getAll);
 
+router.get("/:id/stats", controller.getStats);
+
 router.get("/:id", controller.getById);
 
 router.patch("/:id", controller.update);

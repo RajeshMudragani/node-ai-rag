@@ -4,15 +4,18 @@ import { DocumentsRepository } from "./documents.repository.js";
 import { DOCUMENT_STATUS, STORAGE_KEY_PREFIX } from "./documents.constants.js";
 import { NotFoundError } from "../../common/errors/index.js";
 import { CollectionsService } from "../collections/collections.service.js";
+import { MetadataService } from "../metadata/metadata.service.js";
 
 export class DocumentsService {
     private readonly documentsRepository = new DocumentsRepository();
     private readonly minioService = new MinioService();
     private readonly collectionsService = new CollectionsService();
+    private readonly metadataService = new MetadataService();
 
     async upload(
         file: Express.Multer.File,
         collectionName?: string,
+        metadata?: Record<string, string>,
     ) {
 
         let collectionId: string | null = null;
@@ -38,17 +41,28 @@ export class DocumentsService {
                 file.mimetype,
             );
 
-        return this.documentsRepository
-            .create({
-                filename: file.originalname,
-                mimeType: file.mimetype,
-                storageKey,
-                status: DOCUMENT_STATUS.UPLOADED,
-                metadata: {
-                    size: file.size,
-                },
-                collectionId,
-            });
+        const document = await this.documentsRepository.create({
+            filename: file.originalname,
+            mimeType: file.mimetype,
+            storageKey,
+            status: DOCUMENT_STATUS.UPLOADED,
+            metadata: {
+                size: file.size,
+            },
+            collectionId,
+        });
+
+        if (
+            metadata &&
+            Object.keys(metadata).length > 0
+        ) {
+            await this.metadataService.bulkAdd(
+                document.id,
+                metadata,
+            );
+        }
+
+        return document;
     }
 
     async findById(

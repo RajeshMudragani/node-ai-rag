@@ -1,4 +1,5 @@
 import { CollectionsRepository } from "./collections.repository.js";
+import { NotFoundError } from "../../common/errors/index.js";
 
 export class CollectionsService {
 
@@ -73,6 +74,26 @@ export class CollectionsService {
 
         return this.repository.create(
             collectionName,
+        );
+    }
+
+    async getStats(
+        collectionId: string,
+    ) {
+
+        const collection =
+            await this.repository.findById(
+                collectionId,
+            );
+
+        if (!collection) {
+            throw new NotFoundError(
+                "Collection",
+            );
+        }
+
+        return this.repository.getStats(
+            collectionId,
         );
     }
 }

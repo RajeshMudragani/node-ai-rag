@@ -4,53 +4,82 @@ import { documentChunks } from "../../database/schema/document_chunks.schema.js"
 import { documents } from "../../database/schema/documents.schema.js";
 import { RetrievedChunk } from "./interfaces/retrieved-chunk.interface.js";
 import { DocumentChunkInput } from "./interfaces/document-chunk-input.interface.js";
+import { documentMetadata } from "../../database/schema/document_metadata.schema.js";
 
 export class RetrievalRepository {
     async similaritySearch(
         embedding: number[],
         limit: number,
-        collectionId?: string,
+        documentIds?: string[],
     ): Promise<RetrievedChunk[]> {
+
         const queryVector = `[${embedding.join(",")}]`;
 
-        const similarity = sql<number>`1 - (${documentChunks.embedding} <=> ${queryVector}::vector)`;
-        const distance = sql<number>`${documentChunks.embedding} <=> ${queryVector}::vector`;
+        const similarity =
+            sql<number>`
+                1 -
+                (
+                    ${documentChunks.embedding}
+                    <=>
+                    ${queryVector}::vector
+                )
+            `;
 
-        const query = db.select({
-            id: documentChunks.id,
-            documentId: documentChunks.documentId,
-            filename: documents.filename,
-            content: documentChunks.content,
-            chunkIndex: documentChunks.chunkIndex,
-            pageNumber: documentChunks.pageNumber,
-            tokenCount: documentChunks.tokenCount,
-            similarity,
-        })
-        .from(documentChunks)
-        .innerJoin(
-            documents,
-            eq(
-                documentChunks.documentId,
-                documents.id,
-            ),
-        );
+        const distance =
+            sql<number>`
+                ${documentChunks.embedding}
+                <=>
+                ${queryVector}::vector
+            `;
+
+        const query = db
+            .select({
+                id: documentChunks.id,
+                documentId: documentChunks.documentId,
+                filename: documents.filename,
+                content: documentChunks.content,
+                chunkIndex: documentChunks.chunkIndex,
+                pageNumber: documentChunks.pageNumber,
+                tokenCount: documentChunks.tokenCount,
+                similarity,
+            })
+            .from(
+                documentChunks,
+            )
+            .innerJoin(
+                documents,
+                eq(
+                    documentChunks.documentId,
+                    documents.id,
+                ),
+            );
 
         const rows =
             await (
-                collectionId
+                documentIds?.length
                     ? query.where(
-                        eq(
-                            documents.collectionId,
-                            collectionId,
-                        ),
+                        sql`
+                            ${documentChunks.documentId}
+                            IN (
+                                ${sql.join(
+                                    documentIds.map(
+                                        id => sql`${id}`,
+                                    ),
+                                    sql`, `,
+                                )}
+                            )
+                        `,
                     )
                     : query
             )
-                .orderBy(distance)
-                .limit(limit);
 
-                return rows.map(row => ({ ...row, similarity: Number(row.similarity) }));
-            }
+        return rows.map(
+            row => ({
+                ...row,
+                similarity: Number(row.similarity),
+            }),
+        );
+    }
 
     async addEmbeddings(chunks: DocumentChunkInput[]): Promise<void> {
         await Promise.all(chunks.map(chunk => db.insert(documentChunks).values(chunk)));
@@ -59,14 +88,20 @@ export class RetrievalRepository {
     async keywordSearch(
         query: string,
         limit: number,
-        collectionId?: string,
+        documentIds?: string[],
     ): Promise<RetrievedChunk[]> {
 
-        const collectionFilter =
-            collectionId
+        const documentFilter =
+            documentIds?.length
                 ? sql`
-                    AND d.collection_id =
-                    ${collectionId}
+                    AND dc.document_id IN (
+                        ${sql.join(
+                            documentIds.map(
+                                id => sql`${id}`,
+                            ),
+                            sql`, `,
+                        )}
+                    )
                 `
                 : sql``;
 
@@ -102,16 +137,11 @@ export class RetrievalRepository {
                         'english',
                         ${query}
                     )
-                    ${collectionFilter}
+                    ${documentFilter}
                 ORDER BY
                     "keywordScore" DESC
                 LIMIT ${limit}
             `);
-
-            console.log(
-                "Keyword Collection Filter:",
-                collectionId,
-            );
 
         return rows.rows.map(
             row => ({
@@ -127,5 +157,69 @@ export class RetrievalRepository {
                 hybridScore: 0,
             }),
         ) as RetrievedChunk[];
+    }
+
+    async findMatchingDocumentIds(
+        collectionId?: string,
+        metadata?: Record<string, string>,
+    ): Promise<string[]> {
+
+        let whereConditions = sql`1 = 1`;
+
+        console.log(
+            "Metadata Filter:",
+            metadata,
+        );
+
+        if (collectionId) {
+
+            whereConditions =
+                sql`${whereConditions}
+                    AND d.collection_id =
+                    ${collectionId}`;
+        }
+
+        const metadataConditions =
+            metadata
+                ? Object.entries(metadata)
+                    .map(
+                        ([key, value]) =>
+                            sql`
+                                EXISTS (
+                                    SELECT 1
+                                    FROM document_metadata dm
+                                    WHERE
+                                        dm.document_id = d.id
+                                    AND
+                                        dm.key = ${key}
+                                    AND
+                                        dm.value = ${value}
+                                )
+                            `,
+                    )
+                : [];
+
+        const rows =
+            await db.execute(sql`
+                SELECT d.id
+                FROM documents d
+                WHERE
+                    ${whereConditions}
+                    ${metadataConditions.length
+                        ? sql`AND ${sql.join(
+                            metadataConditions,
+                            sql` AND `,
+                        )}`
+                        : sql``
+                    }
+            `);
+
+            console.log(
+                "Matching Documents:",
+                rows.rows,
+            );
+        return rows.rows.map(
+            row => String(row.id),
+        );
     }
 }

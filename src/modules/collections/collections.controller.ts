@@ -143,4 +143,27 @@ export class CollectionsController {
             next(error);
         }
     };
+
+    getStats = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ) => {
+
+        try {
+
+            const collections = await this.service.getStats(String(req.params.id));
+
+            res.status(
+                HTTP_STATUS.OK,
+            ).json(
+                successResponse({
+                    items: collections,
+                }),
+            );
+
+        } catch (error) {
+            next(error);
+        }
+    };
 }

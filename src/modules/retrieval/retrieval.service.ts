@@ -21,12 +21,14 @@ export class RetrievalService {
         query: string,
         limit: number,
         collectionName?: string,
+        metadata?: Record<string, string>,
     ): Promise<RetrievedChunk[]> {
 
         return this.hybridSearch(
             query,
             limit,
             collectionName,
+            metadata,
         );
     }
 
@@ -34,7 +36,11 @@ export class RetrievalService {
         query: string,
         limit: number,
         collectionName?: string,
-    ): Promise<BuiltContext> {
+        metadata?: Record<
+            string,
+            string
+        >,
+    ) {
 
         const chunks = await this.hybridSearch(
             query,
@@ -51,7 +57,11 @@ export class RetrievalService {
         query: string,
         limit: number,
         collectionName?: string,
-    ): Promise<RetrievedChunk[]> {
+        metadata?: Record<
+            string,
+            string
+        >,
+    ) {
 
         let collectionId: string | undefined;
 
@@ -62,15 +72,12 @@ export class RetrievalService {
             collectionId = collection?.id;
         }
 
-        console.log(
-            "Collection Name:",
-            collectionName,
+        const documentIds = await this.repository.findMatchingDocumentIds(
+            collectionId,
+            metadata
         );
 
-        console.log(
-            "Collection ID:",
-            collectionId,
-        );
+        console.log("Metadata:", metadata);
 
         const embeddingResult = await this.embeddingsService.generate(
             query,
@@ -81,7 +88,7 @@ export class RetrievalService {
                 await this.repository.similaritySearch(
                     embeddingResult.embedding,
                     limit,
-                    collectionId,
+                    documentIds,
                 )
             ).filter(
                 chunk => chunk.similarity >= MIN_SIMILARITY,
@@ -90,7 +97,7 @@ export class RetrievalService {
         const keywordResults = await this.repository.keywordSearch(
             query,
             limit,
-            collectionId,
+            documentIds,
         );
 
         return this.mergeResults(

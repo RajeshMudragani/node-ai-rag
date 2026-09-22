@@ -1,10 +1,9 @@
 import { randomUUID } from "crypto";
-
 import {
+    sql,
     eq,
     desc,
 } from "drizzle-orm";
-
 import { db } from "../../config/db.config.js";
 import { collections } from "../../database/schema/collections.schema.js";
 
@@ -106,5 +105,32 @@ export class CollectionsRepository {
             .limit(1);
 
         return result[0] ?? null;
+    }
+
+    async getStats(
+        collectionId: string,
+    ) {
+
+        const result =
+            await db.execute(sql`
+                SELECT
+                    COUNT(
+                        DISTINCT d.id
+                    )::int AS documents,
+
+                    COUNT(
+                        dc.id
+                    )::int AS chunks
+
+                FROM documents d
+
+                LEFT JOIN document_chunks dc
+                    ON dc.document_id = d.id
+
+                WHERE
+                    d.collection_id = ${collectionId}
+            `);
+
+        return result.rows[0];
     }
 }

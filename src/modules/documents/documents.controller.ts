@@ -25,9 +25,12 @@ export class DocumentsController {
 
             const collectionName = req.body.collectionName;
 
+            const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : undefined;
+
             const document = await this.documentsService.upload(
                 req.file,
                 collectionName,
+                metadata,
             );
 
             res.status(
