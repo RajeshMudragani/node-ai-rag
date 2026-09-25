@@ -166,11 +166,6 @@ export class RetrievalRepository {
 
         let whereConditions = sql`1 = 1`;
 
-        console.log(
-            "Metadata Filter:",
-            metadata,
-        );
-
         if (collectionId) {
 
             whereConditions =
@@ -214,10 +209,6 @@ export class RetrievalRepository {
                     }
             `);
 
-            console.log(
-                "Matching Documents:",
-                rows.rows,
-            );
         return rows.rows.map(
             row => String(row.id),
         );

@@ -17,8 +17,6 @@ export class RetrievalController {
 
             const dto = SearchDtoSchema.parse(req.body);
 
-            console.log("DTO:", dto);
-
             const results = await this.retrievalService.search(
                 dto.query,
                 dto.limit,

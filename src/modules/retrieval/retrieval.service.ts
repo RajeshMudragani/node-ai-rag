@@ -1,8 +1,7 @@
 import { EmbeddingsService } from "../embeddings/embeddings.service.js";
 import { RetrievalRepository } from "./retrieval.repository.js";
 import { RetrievedChunk } from "./interfaces/retrieved-chunk.interface.js";
-
-import { BuiltContext } from "../context-builder/interfaces/built-context.interface.js";
+import { RerankerService } from "../reranker/reranker.service.js";
 import { ContextBuilderService } from "../context-builder/context-builder.service.js";
 import {
     MIN_SIMILARITY,
@@ -10,12 +9,17 @@ import {
     KEYWORD_WEIGHT,
 } from "./retrieval.constants.js";
 import { CollectionsService } from "../collections/collections.service.js";
+import {
+    DEFAULT_RERANK_CANDIDATES,
+    RERANK_CANDIDATE_MULTIPLIER,
+} from "../reranker/reranker.constants.js";
 
 export class RetrievalService {
     private readonly embeddingsService = new EmbeddingsService();
     private readonly repository = new RetrievalRepository();
     private readonly contextBuilder = new ContextBuilderService();
     private readonly collectionsService = new CollectionsService();
+    private readonly rerankerService = new RerankerService();
 
     async search(
         query: string,
@@ -77,17 +81,20 @@ export class RetrievalService {
             metadata
         );
 
-        console.log("Metadata:", metadata);
-
         const embeddingResult = await this.embeddingsService.generate(
             query,
+        );
+
+        const rerankCandidateCount = Math.max(
+            limit * RERANK_CANDIDATE_MULTIPLIER,
+            DEFAULT_RERANK_CANDIDATES,
         );
 
         const vectorResults =
             (
                 await this.repository.similaritySearch(
                     embeddingResult.embedding,
-                    limit,
+                    rerankCandidateCount,
                     documentIds,
                 )
             ).filter(
@@ -96,13 +103,19 @@ export class RetrievalService {
 
         const keywordResults = await this.repository.keywordSearch(
             query,
-            limit,
+            rerankCandidateCount,
             documentIds,
         );
 
-        return this.mergeResults(
+        const merged = this.mergeResults(
             vectorResults,
             keywordResults,
+            rerankCandidateCount,
+        );
+
+        return this.rerankerService.rerank(
+            query,
+            merged,
             limit,
         );
     }

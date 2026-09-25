@@ -21,4 +21,69 @@ export class ChatController {
             next(error);
         }
     };
+
+    stream = async (
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> => {
+
+        try {
+
+            const dto = ChatDtoSchema.parse(req.body);
+
+            res.setHeader(
+                "Content-Type",
+                "text/event-stream",
+            );
+
+            res.setHeader(
+                "Cache-Control",
+                "no-cache",
+            );
+
+            res.setHeader(
+                "Connection",
+                "keep-alive",
+            );
+
+            res.flushHeaders();
+
+            await this.chatService.streamChat(
+                dto.question,
+                dto.topK,
+                dto.promptType,
+                token => {
+
+                    res.write(
+                        `event: token\n`,
+                    );
+
+                    res.write(
+                        `data: ${JSON.stringify(
+                            token,
+                        )}\n\n`,
+                    );
+                },
+                dto.conversationId,
+            );
+
+            res.write(
+                `event: done\n`,
+            );
+
+            res.write(
+                `data: {}\n\n`,
+            );
+
+            res.end();
+
+        } catch (
+            error
+        ) {
+            next(
+                error,
+            );
+        }
+    };
 }

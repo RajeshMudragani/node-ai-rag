@@ -7,6 +7,8 @@ import chatRouter from "./chat/chat.router.js";
 import conversationRouter from "./conversation/conversation.router.js";
 import collectionsRouter from "./collections/collections.router.js";
 import metadataRouter from "./metadata/metadata.router.js";
+import evaluationRouter from "./evaluation/evaluation.routes.js";
+import feedbackRouter from "./feedback/feedback.router.js";
 
 const router = Router();
 
@@ -18,5 +20,7 @@ router.use("/chat", chatRouter);
 router.use("/conversations", conversationRouter );
 router.use("/collections", collectionsRouter);
 router.use("/", metadataRouter);
+router.use("/evaluations", evaluationRouter);
+router.use("/feedback", feedbackRouter);
 
 export default router;

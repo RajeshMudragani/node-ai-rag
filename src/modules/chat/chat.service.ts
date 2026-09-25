@@ -85,4 +85,75 @@ export class ChatService {
             rewrittenQuery,
         };
     }
+
+    async streamChat(
+        question: string,
+        topK: number,
+        promptType: PromptType,
+        onToken: (
+            token: string,
+        ) => void,
+        conversationId?: string,
+    ): Promise<{
+        answer: string;
+        conversationId: string;
+    }> {
+
+        const isNewConversation = !conversationId;
+
+        const currentConversationId = await this.conversationService.ensureConversation(
+            conversationId,
+        );
+
+        const history = await this.conversationService.getHistory(
+            currentConversationId,
+        );
+
+        const rewrittenQuery = await this.queryRewriter.rewrite(
+            question,
+            history,
+        );
+
+        const builtContext = await this.retrievalService.retrieveContext(
+            rewrittenQuery,
+            topK,
+        );
+
+        const prompt = this.promptBuilder.build(
+            question,
+            builtContext.context,
+            history,
+            promptType,
+        );
+
+        const answer = await this.ollamaService.stream(
+            prompt,
+            onToken,
+        );
+
+        await this.conversationService.addUserMessage(
+            currentConversationId,
+            question,
+        );
+
+        await this.conversationService.addAssistantMessage(
+            currentConversationId,
+            answer,
+        );
+
+        if (
+            isNewConversation
+        ) {
+
+            await this.conversationService.generateAndSaveTitle(
+                currentConversationId,
+                question,
+            );
+        }
+
+        return {
+            answer,
+            conversationId: currentConversationId,
+        };
+    }
 }
