@@ -32,6 +32,10 @@ const envSchema = z.object({
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     REQUEST_BODY_LIMIT: z.string().default("50mb"),
     UPLOAD_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(100),
+
+    JWT_ACCESS_EXPIRES_IN: z.enum(["15m", "30m", "1h"]),
+    JWT_REFRESH_EXPIRES_IN: z.enum(["7d", "30d"]),
+
 });
 
 

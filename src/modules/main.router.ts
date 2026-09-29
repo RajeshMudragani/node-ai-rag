@@ -9,6 +9,8 @@ import collectionsRouter from "./collections/collections.router.js";
 import metadataRouter from "./metadata/metadata.router.js";
 import evaluationRouter from "./evaluation/evaluation.routes.js";
 import feedbackRouter from "./feedback/feedback.router.js";
+import usersRouter from "./users/users.router.js";
+import authRouter from "./auth/auth.router.js";
 
 const router = Router();
 
@@ -22,5 +24,7 @@ router.use("/collections", collectionsRouter);
 router.use("/", metadataRouter);
 router.use("/evaluations", evaluationRouter);
 router.use("/feedback", feedbackRouter);
+router.use("/users", usersRouter);
+router.use("/auth", authRouter);
 
 export default router;

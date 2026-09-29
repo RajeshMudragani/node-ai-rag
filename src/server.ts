@@ -2,6 +2,7 @@ import app from "./app.js";
 import { env } from "./config/env.config.js";
 import { logger } from "./logger/logger.js";
 import { checkDatabaseConnection, pool } from "./config/db.config.js";
+import { AuthKeyService } from "./modules/auth/auth_key/auth-key.service.js";
 
 const startServer = async () => {
     try {

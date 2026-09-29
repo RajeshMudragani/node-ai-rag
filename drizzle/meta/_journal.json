@@ -22,6 +22,27 @@
       "when": 1790336928418,
       "tag": "0002_regular_wither",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790341026326,
+      "tag": "0003_oval_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790576928678,
+      "tag": "0004_salty_mockingbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790665150881,
+      "tag": "0005_brave_serpent_society",
+      "breakpoints": true
     }
   ]
 }
