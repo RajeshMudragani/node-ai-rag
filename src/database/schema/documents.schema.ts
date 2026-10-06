@@ -21,6 +21,10 @@ export const documents = pgTable("documents", {
 
     storageKey: text("storage_key").notNull(),
 
+    tenantId: uuid(
+        "tenant_id",
+    ).notNull(),
+
     status: varchar("status", {
         length: 30,
     }).notNull(),

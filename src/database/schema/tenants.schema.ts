@@ -1,42 +1,40 @@
 import {
     pgTable,
     uuid,
-    text,
     varchar,
+    boolean,
     timestamp,
+    text,
 } from "drizzle-orm/pg-core";
 
-export const feedbacks = pgTable(
-    "feedbacks",
+export const tenants = pgTable(
+    "tenants",
     {
         id: uuid("id").primaryKey(),
 
-        conversationId: uuid(
-            "conversation_id",
-        ),
-
-        tenantId: uuid(
-            "tenant_id",
-        ).notNull(),
-
-        question: text(
-            "question",
-        ).notNull(),
-
-        answer: text(
-            "answer",
-        ).notNull(),
-
-        rating: varchar(
-            "rating",
+        name: varchar(
+            "name",
             {
-                length: 20,
+                length: 255,
             },
         ).notNull(),
 
-        comment: text(
-            "comment",
+        slug: varchar(
+            "slug",
+            {
+                length: 100,
+            },
+        ).notNull(),
+
+        description: text(
+            "description",
         ),
+
+        isActive: boolean(
+            "is_active",
+        )
+            .default(true)
+            .notNull(),
 
         createdAt: timestamp(
             "created_at",

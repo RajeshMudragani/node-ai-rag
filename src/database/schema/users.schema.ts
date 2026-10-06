@@ -18,6 +18,10 @@ export const users = pgTable(
             },
         ).notNull(),
 
+        tenantId: uuid(
+            "tenant_id",
+        ),
+
         passwordHash: varchar(
             "password_hash",
             {

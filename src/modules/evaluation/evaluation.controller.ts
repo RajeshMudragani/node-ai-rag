@@ -3,42 +3,35 @@ import {
     Response,
     NextFunction,
 } from "express";
-
-import { EvaluationService }
-from "./evaluation.service.js";
-
-import {
-    CreateEvaluationDtoSchema,
-} from "./dto/create-evaluation.dto.js";
-
-import {
-    successResponse,
-} from "../../common/types/index.js";
+import { EvaluationService } from "./evaluation.service.js";
+import { CreateEvaluationDtoSchema } from "./dto/create-evaluation.dto.js";
+import { successResponse } from "../../common/types/index.js";
+import { AuthenticatedRequest } from "../auth/interfaces/authenticated-request.interface.js";
 
 export class EvaluationController {
 
-    private readonly service =
-        new EvaluationService();
+    private readonly service = new EvaluationService();
 
     run = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const dto =
-                CreateEvaluationDtoSchema.parse(
-                    req.body,
-                );
+            const dto = CreateEvaluationDtoSchema.parse(req.body);
 
-            const result =
-                await this.service.run(
-                    dto.question,
-                    dto.expectedAnswer,
-                    dto.topK,
-                );
+            const result = await this.service.run(
+                dto.question,
+                dto.expectedAnswer,
+                dto.topK,
+                req.tenantId!,
+            );
+
+            console.log({
+                serviceTenantId: req.tenantId,
+            });
 
             res.json(
                 successResponse(
@@ -57,14 +50,14 @@ export class EvaluationController {
     };
 
     history = async (
-        _req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const result = await this.service.getHistory();
+            const result = await this.service.getHistory(req.tenantId!);
 
             res.json(
                 successResponse(

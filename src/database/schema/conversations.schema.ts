@@ -12,6 +12,10 @@ export const conversations = pgTable(
         id: uuid("id")
             .primaryKey(),
 
+        tenantId: uuid(
+            "tenant_id",
+        ).notNull(),
+
         title: varchar(
             "title",
             {

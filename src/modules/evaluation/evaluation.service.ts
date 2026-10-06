@@ -13,17 +13,24 @@ export class EvaluationService {
         question: string,
         expectedAnswer: string,
         topK: number,
+        tenantId: string,
     ) {
 
         const chunks = await this.retrievalService.search(
             question,
             topK,
+            tenantId,
         );
 
+        console.log({
+            serviceTenantId: tenantId,
+        });
+        
         const response = await this.chatService.chat(
             question,
             topK,
             PromptType.DEFAULT,
+            tenantId,
         );
 
         const generatedAnswer = response.answer;
@@ -48,9 +55,7 @@ export class EvaluationService {
                         25,
                     ),
                 ),
-            )
-                ? 1
-                : 0.5;
+            ) ? 1 : 0.5;
 
         const overallScore = (
                 retrievalPrecision +
@@ -58,15 +63,18 @@ export class EvaluationService {
                 groundedness
             ) / 3;
 
-        await this.repository.create({
-            question,
-            expectedAnswer,
-            generatedAnswer,
-            retrievalPrecision,
-            answerRelevance,
-            groundedness,
-            overallScore,
-        });
+        await this.repository.create(
+            tenantId,
+            {
+                question,
+                expectedAnswer,
+                generatedAnswer,
+                retrievalPrecision,
+                answerRelevance,
+                groundedness,
+                overallScore,
+            }
+        );
 
         return {
             retrievalPrecision,
@@ -77,7 +85,7 @@ export class EvaluationService {
         };
     }
 
-    async getHistory() {
-        return this.repository.findAll();
+    async getHistory(tenantId: string) {
+        return this.repository.findAll(tenantId);
     }
 }

@@ -4,4 +4,5 @@ export interface JwtPayload {
     role: string;
     kid: string;
     typ: | "ACCESS" | "REFRESH";
+    tenantId: string;
 }

@@ -1,4 +1,4 @@
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
 import { db } from "../../config/db.config.js";
 import { documentChunks } from "../../database/schema/document_chunks.schema.js";
 import { documents } from "../../database/schema/documents.schema.js";
@@ -7,7 +7,9 @@ import { DocumentChunkInput } from "./interfaces/document-chunk-input.interface.
 import { documentMetadata } from "../../database/schema/document_metadata.schema.js";
 
 export class RetrievalRepository {
+
     async similaritySearch(
+        tenantId: string,
         embedding: number[],
         limit: number,
         documentIds?: string[],
@@ -25,53 +27,60 @@ export class RetrievalRepository {
                 )
             `;
 
-        const distance =
-            sql<number>`
-                ${documentChunks.embedding}
-                <=>
-                ${queryVector}::vector
-            `;
-
-        const query = db
-            .select({
-                id: documentChunks.id,
-                documentId: documentChunks.documentId,
-                filename: documents.filename,
-                content: documentChunks.content,
-                chunkIndex: documentChunks.chunkIndex,
-                pageNumber: documentChunks.pageNumber,
-                tokenCount: documentChunks.tokenCount,
-                similarity,
-            })
-            .from(
-                documentChunks,
-            )
-            .innerJoin(
-                documents,
-                eq(
-                    documentChunks.documentId,
-                    documents.id,
-                ),
+        const tenantCondition =
+            eq(
+                documents.tenantId,
+                tenantId,
             );
 
-        const rows =
-            await (
-                documentIds?.length
-                    ? query.where(
-                        sql`
-                            ${documentChunks.documentId}
-                            IN (
-                                ${sql.join(
-                                    documentIds.map(
-                                        id => sql`${id}`,
-                                    ),
-                                    sql`, `,
-                                )}
-                            )
-                        `,
+        const documentCondition =
+            documentIds?.length
+                ? sql`
+                    ${documentChunks.documentId}
+                    IN (
+                        ${sql.join(
+                            documentIds.map(
+                                id => sql`${id}`,
+                            ),
+                            sql`, `,
+                        )}
                     )
-                    : query
-            )
+                `
+                : undefined;
+
+        const rows =
+            await db
+                .select({
+                    id: documentChunks.id,
+                    documentId: documentChunks.documentId,
+                    filename: documents.filename,
+                    content: documentChunks.content,
+                    chunkIndex: documentChunks.chunkIndex,
+                    pageNumber: documentChunks.pageNumber,
+                    tokenCount: documentChunks.tokenCount,
+                    similarity,
+                })
+                .from(
+                    documentChunks,
+                )
+                .innerJoin(
+                    documents,
+                    eq(
+                        documentChunks.documentId,
+                        documents.id,
+                    ),
+                )
+                .where(
+                    documentCondition
+                        ? and(
+                            tenantCondition,
+                            documentCondition,
+                        )
+                        : tenantCondition,
+                )
+                .limit(
+                    limit,
+                );
 
         return rows.map(
             row => ({
@@ -86,6 +95,7 @@ export class RetrievalRepository {
     }
 
     async keywordSearch(
+        tenantId: string,
         query: string,
         limit: number,
         documentIds?: string[],
@@ -124,23 +134,28 @@ export class RetrievalRepository {
                             'english',
                             ${query}
                         )
-                    ) AS "keywordScore"
+                    )
+                    AS "keywordScore"
                 FROM document_chunks dc
                 INNER JOIN documents d
                     ON d.id = dc.document_id
-                WHERE
+                WHERE 
+                    d.tenant_id = ${tenantId}
+                AND
                     to_tsvector(
                         'english',
                         dc.content
                     )
-                    @@ plainto_tsquery(
+                    @@
+                    plainto_tsquery(
                         'english',
                         ${query}
                     )
                     ${documentFilter}
                 ORDER BY
                     "keywordScore" DESC
-                LIMIT ${limit}
+                LIMIT
+                    ${limit}
             `);
 
         return rows.rows.map(
@@ -160,38 +175,57 @@ export class RetrievalRepository {
     }
 
     async findMatchingDocumentIds(
+        tenantId: string,
         collectionId?: string,
-        metadata?: Record<string, string>,
+        metadata?: Record<
+            string,
+            string
+        >,
     ): Promise<string[]> {
 
-        let whereConditions = sql`1 = 1`;
+        console.log({
+            repositoryTenantId: tenantId,
+        });
+        let whereConditions =
+            sql`
+                d.tenant_id =
+                ${tenantId}
+            `;
 
-        if (collectionId) {
+        if (
+            collectionId
+        ) {
 
             whereConditions =
-                sql`${whereConditions}
-                    AND d.collection_id =
-                    ${collectionId}`;
+                sql`
+                    ${whereConditions}
+                    AND
+                    d.collection_id =
+                    ${collectionId}
+                `;
         }
 
         const metadataConditions =
             metadata
-                ? Object.entries(metadata)
-                    .map(
-                        ([key, value]) =>
-                            sql`
-                                EXISTS (
-                                    SELECT 1
-                                    FROM document_metadata dm
-                                    WHERE
-                                        dm.document_id = d.id
-                                    AND
-                                        dm.key = ${key}
-                                    AND
-                                        dm.value = ${value}
-                                )
-                            `,
-                    )
+                ? Object.entries(
+                    metadata,
+                ).map(
+                    ([key, value]) =>
+                        sql`
+                            EXISTS (
+                                SELECT 1
+                                FROM document_metadata dm
+                                WHERE
+                                    dm.document_id =
+                                    d.id
+                                AND
+                                    dm.key =
+                                    ${key}
+                                AND
+                                    dm.value = ${value}
+                            )
+                        `,
+                )
                 : [];
 
         const rows =
@@ -199,12 +233,16 @@ export class RetrievalRepository {
                 SELECT d.id
                 FROM documents d
                 WHERE
-                    ${whereConditions}
-                    ${metadataConditions.length
-                        ? sql`AND ${sql.join(
-                            metadataConditions,
-                            sql` AND `,
-                        )}`
+                ${whereConditions}
+                ${
+                    metadataConditions.length
+                        ? sql`
+                            AND
+                            ${sql.join(
+                                metadataConditions,
+                                sql` AND `,
+                            )}
+                        `
                         : sql``
                     }
             `);

@@ -3,6 +3,7 @@ import {
     sql,
     eq,
     desc,
+    and,
 } from "drizzle-orm";
 import { db } from "../../config/db.config.js";
 import { collections } from "../../database/schema/collections.schema.js";
@@ -10,6 +11,7 @@ import { collections } from "../../database/schema/collections.schema.js";
 export class CollectionsRepository {
 
     async create(
+        tenantId: string,
         name: string,
         description?: string,
     ) {
@@ -20,6 +22,7 @@ export class CollectionsRepository {
             .insert(collections)
             .values({
                 id,
+                tenantId,
                 name,
                 description,
             });
@@ -27,11 +30,19 @@ export class CollectionsRepository {
         return id;
     }
 
-    async findAll() {
+    async findAll(
+        tenantId: string,
+    ) {
 
         return db
             .select()
             .from(collections)
+            .where(
+                eq(
+                    collections.tenantId,
+                    tenantId,
+                ),
+            )
             .orderBy(
                 desc(
                     collections.createdAt,
@@ -40,6 +51,7 @@ export class CollectionsRepository {
     }
 
     async findById(
+        tenantId: string,
         collectionId: string,
     ) {
 
@@ -47,9 +59,15 @@ export class CollectionsRepository {
             .select()
             .from(collections)
             .where(
-                eq(
-                    collections.id,
-                    collectionId,
+                and(
+                    eq(
+                        collections.id,
+                        collectionId,
+                    ),
+                    eq(
+                        collections.tenantId,
+                        tenantId,
+                    ),
                 ),
             )
             .limit(1);
@@ -58,6 +76,7 @@ export class CollectionsRepository {
     }
 
     async update(
+        tenantId: string,
         collectionId: string,
         data: {
             name?: string;
@@ -65,31 +84,50 @@ export class CollectionsRepository {
         },
     ) {
 
-        await db.update(collections).set({
-            ...data,
-            updatedAt: new Date(),
-        })
-        .where(
-            eq(
-                collections.id,
-                collectionId,
-            ),
-        );
+        await db
+            .update(collections)
+            .set({
+                ...data,
+                updatedAt:
+                    new Date(),
+            })
+            .where(
+                and(
+                    eq(
+                        collections.id,
+                        collectionId,
+                    ),
+                    eq(
+                        collections.tenantId,
+                        tenantId,
+                    ),
+                ),
+            );
     }
 
     async delete(
+        tenantId: string,
         collectionId: string,
     ) {
 
-        await db.delete(collections).where(
-            eq(
-                collections.id,
-                collectionId,
-            ),
-        );
+        await db
+            .delete(collections)
+            .where(
+                and(
+                    eq(
+                        collections.id,
+                        collectionId,
+                    ),
+                    eq(
+                        collections.tenantId,
+                        tenantId,
+                    ),
+                ),
+            );
     }
 
     async findByName(
+        tenantId: string,
         name: string,
     ) {
 
@@ -97,9 +135,15 @@ export class CollectionsRepository {
             .select()
             .from(collections)
             .where(
-                eq(
-                    collections.name,
-                    name,
+                and(
+                    eq(
+                        collections.tenantId,
+                        tenantId,
+                    ),
+                    eq(
+                        collections.name,
+                        name,
+                    ),
                 ),
             )
             .limit(1);
@@ -111,8 +155,7 @@ export class CollectionsRepository {
         collectionId: string,
     ) {
 
-        const result =
-            await db.execute(sql`
+        const result = await db.execute(sql`
                 SELECT
                     COUNT(
                         DISTINCT d.id

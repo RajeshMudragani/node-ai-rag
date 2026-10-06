@@ -1,13 +1,15 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../../config/db.config.js";
 import { documents } from "../../database/schema/documents.schema.js";
 import { CreateDocumentInput } from "./interfaces/create-document.interface.js";
 import { collections } from "../../database/schema/collections.schema.js";
+
 export class DocumentsRepository {
     async create(
         input: CreateDocumentInput,
     ) {
         const [document] = await db.insert(documents).values({
+            tenantId: input.tenantId,
             filename: input.filename,
             mimeType: input.mimeType,
             storageKey: input.storageKey,
@@ -21,8 +23,34 @@ export class DocumentsRepository {
     }
 
     async findById(
+        tenantId: string,
         documentId: string,
     ) {
+
+        const [document] =
+            await db
+                .select()
+                .from(documents)
+                .where(
+                    and(
+                        eq(
+                            documents.id,
+                            documentId,
+                        ),
+                        eq(
+                            documents.tenantId,
+                            tenantId,
+                        ),
+                    ),
+                );
+
+        return document ?? null;
+    }
+
+    async findByIdInternal(
+        documentId: string,
+    ) {
+
         const [document] = await db
             .select()
             .from(documents)
@@ -57,27 +85,15 @@ export class DocumentsRepository {
         return document;
     }
 
-    async findAll() {
+    async findAll(tenantId: string) {
         return db
             .select()
-            .from(documents);
-    }
-
-    async findByName(
-        name: string,
-    ) {
-
-        const result = await db
-            .select()
-            .from(collections)
+            .from(documents)
             .where(
                 eq(
-                    collections.name,
-                    name,
+                    documents.tenantId,
+                    tenantId,
                 ),
             )
-            .limit(1);
-
-        return result[0] ?? null;
     }
 }

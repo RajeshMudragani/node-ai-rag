@@ -9,14 +9,18 @@ export class ConversationService {
     private readonly titleGenerator = new ConversationTitleGeneratorService();
 
     async ensureConversation(
+        tenantId: string,
         conversationId?: string,
     ): Promise<string> {
 
         if (!conversationId) {
-            return this.repository.createConversation();
+            return this.repository.createConversation(
+                tenantId,
+            );
         }
 
         const exists = await this.repository.conversationExists(
+            tenantId,
             conversationId,
         );
 
@@ -24,39 +28,47 @@ export class ConversationService {
             return conversationId;
         }
 
-        return this.repository.createConversation();
+        return this.repository.createConversation(
+            tenantId,
+        );
     }
 
     async getConversations(
+        tenantId: string,
         page: number,
         pageSize: number,
         search?: string,
     ) {
 
-        return this.repository
-            .listConversations(
-                page,
-                pageSize,
-                search,
-            );
+        return this.repository.listConversations(
+            tenantId,
+            page,
+            pageSize,
+            search,
+        );
     }
 
-    async getConversation(
+    async getConversationById(
+        tenantId: string,
         conversationId: string,
     ) {
 
-        const conversation =
-            await this.repository
-                .getConversationById(
-                    conversationId,
-                );
+        const conversation = await this.repository.getConversationById(
+            tenantId,
+            conversationId,
+        );
 
-        const messages =
-            await this.repository
-                .getMessages(
-                    conversationId,
-                    1000,
-                );
+        if (!conversation) {
+            return {
+                conversation: null,
+                messages: [],
+            };
+        }
+
+        const messages = await this.repository.getMessages(
+            conversationId,
+            1000,
+        );
 
         return {
             conversation,
@@ -65,8 +77,17 @@ export class ConversationService {
     }
 
     async getHistory(
+        tenantId: string,
         conversationId: string,
     ): Promise<ChatMessage[]> {
+
+        const conversation = await this.repository.getConversationById(
+            tenantId,
+            conversationId,
+        );
+        if (!conversation) {
+            return [];
+        }
 
         const messages = await this.repository.getMessages(
             conversationId,
@@ -75,11 +96,7 @@ export class ConversationService {
 
         return messages.map(
             message => ({
-                role:
-                    message.role as
-                        | "user"
-                        | "assistant",
-
+                role: message.role as | "user" | "assistant",
                 content: message.content,
                 timestamp: message.createdAt,
             }),
@@ -91,13 +108,12 @@ export class ConversationService {
         content: string,
     ): Promise<void> {
 
-        const nextSequence =
-            (
-                await this.repository
-                    .getLatestSequenceNumber(
-                        conversationId,
-                    )
-            ) + 1;
+        const nextSequence = (
+            await this.repository
+                .getLatestSequenceNumber(
+                    conversationId,
+                )
+        ) + 1;
 
         await this.repository.addMessage(
             conversationId,
@@ -140,6 +156,7 @@ export class ConversationService {
     }
 
     async generateAndSaveTitle(
+        tenantId: string,
         conversationId: string,
         question: string,
     ): Promise<void> {
@@ -149,21 +166,24 @@ export class ConversationService {
         );
 
         await this.repository.updateTitle(
+            tenantId,
             conversationId,
             title,
         );
     }
 
     async deleteConversation(
+        tenantId: string,
         conversationId: string,
     ): Promise<void> {
-        await this.repository.deleteConversation(conversationId);
+        await this.repository.deleteConversation(tenantId, conversationId);
     }
 
     async renameConversation(
+        tenantId: string,
         conversationId: string,
         title: string,
     ): Promise<void> {
-        await this.repository.renameConversation(conversationId, title);
+        await this.repository.renameConversation(tenantId, conversationId, title);
     }
 }

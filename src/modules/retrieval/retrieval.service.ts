@@ -24,13 +24,18 @@ export class RetrievalService {
     async search(
         query: string,
         limit: number,
+        tenantId: string,
         collectionName?: string,
         metadata?: Record<string, string>,
     ): Promise<RetrievedChunk[]> {
 
+        console.log({
+            searchTenantId: tenantId,
+        });
         return this.hybridSearch(
             query,
             limit,
+            tenantId,
             collectionName,
             metadata,
         );
@@ -39,6 +44,7 @@ export class RetrievalService {
     async retrieveContext(
         query: string,
         limit: number,
+        tenantId: string,
         collectionName?: string,
         metadata?: Record<
             string,
@@ -49,6 +55,7 @@ export class RetrievalService {
         const chunks = await this.hybridSearch(
             query,
             limit,
+            tenantId,
             collectionName,
         );
 
@@ -60,6 +67,7 @@ export class RetrievalService {
     private async hybridSearch(
         query: string,
         limit: number,
+        tenantId: string,
         collectionName?: string,
         metadata?: Record<
             string,
@@ -71,15 +79,29 @@ export class RetrievalService {
 
         if (collectionName) {
             const collection = await this.collectionsService.findByName(
+                tenantId,
                 collectionName,
             );
             collectionId = collection?.id;
         }
 
+        console.log({
+            hybridTenantId: tenantId,
+            collectionId,
+            metadata,
+        });
+
         const documentIds = await this.repository.findMatchingDocumentIds(
+            tenantId,
             collectionId,
             metadata
         );
+
+        console.log({
+            tenantId,
+            collectionName,
+            collectionId,
+        });
 
         const embeddingResult = await this.embeddingsService.generate(
             query,
@@ -93,6 +115,7 @@ export class RetrievalService {
         const vectorResults =
             (
                 await this.repository.similaritySearch(
+                    tenantId,
                     embeddingResult.embedding,
                     rerankCandidateCount,
                     documentIds,
@@ -102,6 +125,7 @@ export class RetrievalService {
             );
 
         const keywordResults = await this.repository.keywordSearch(
+            tenantId,
             query,
             rerankCandidateCount,
             documentIds,

@@ -17,7 +17,7 @@ export class IngestionService {
     private readonly retrievalRepository = new RetrievalRepository();
 
     async process(documentId: string) {
-        const document = await this.documentsRepository.findById(documentId);
+        const document = await this.documentsRepository.findByIdInternal(documentId);
         if (!document) throw new NotFoundError("Document");
 
         await this.documentsRepository.updateStatus(documentId, DOCUMENT_STATUS.PROCESSING);

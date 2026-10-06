@@ -1,8 +1,5 @@
-import {
-    Request,
-    Response,
-    NextFunction,
-} from "express";
+import { Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../auth/interfaces/authenticated-request.interface.js";
 import { CollectionsService } from "./collections.service.js";
 import { CreateCollectionDtoSchema } from "./dto/create-collection.dto.js";
 import { UpdateCollectionDtoSchema } from "./dto/update-collection.dto.js";
@@ -14,7 +11,7 @@ export class CollectionsController {
     private readonly service = new CollectionsService();
 
     create = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -24,6 +21,7 @@ export class CollectionsController {
             const body = CreateCollectionDtoSchema.parse(req.body);
 
             const id = await this.service.create(
+                req.tenantId!,
                 body.name,
                 body.description,
             );
@@ -42,14 +40,14 @@ export class CollectionsController {
     };
 
     getAll = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const collections = await this.service.getAll();
+            const collections = await this.service.getAll(req.tenantId!);
 
             res.status(
                 HTTP_STATUS.OK,
@@ -65,7 +63,7 @@ export class CollectionsController {
     };
 
     getById = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -73,6 +71,7 @@ export class CollectionsController {
         try {
 
             const result = await this.service.getById(
+                req.tenantId!,
                 String(
                     req.params.id,
                 ),
@@ -92,7 +91,7 @@ export class CollectionsController {
     };
 
     update = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -102,6 +101,7 @@ export class CollectionsController {
             const body = UpdateCollectionDtoSchema.parse(req.body);
 
             await this.service.update(
+                req.tenantId!,
                 String(
                     req.params.id,
                 ),
@@ -122,14 +122,17 @@ export class CollectionsController {
     };
 
     delete = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            await this.service.delete(String(req.params.id));
+            await this.service.delete(
+                req.tenantId!,
+                String(req.params.id),
+            );
 
             res.status(
                 HTTP_STATUS.OK,
@@ -145,20 +148,23 @@ export class CollectionsController {
     };
 
     getStats = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const collections = await this.service.getStats(String(req.params.id));
+            const stats = await this.service.getStats(
+                req.tenantId!,
+                String(req.params.id),
+            );
 
             res.status(
                 HTTP_STATUS.OK,
             ).json(
                 successResponse({
-                    items: collections,
+                    items: stats,
                 }),
             );
 

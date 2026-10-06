@@ -3,6 +3,7 @@ import { Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "../interfaces/authenticated-request.interface.js";
 import { JwtPayload } from "../interfaces/jwt-payload.interface.js";
 import { AuthKeyService } from "../auth_key/auth-key.service.js";
+import { UnauthorizedError } from "../../../common/errors/index.js";
 
 export const authMiddleware = async (
     req: AuthenticatedRequest,
@@ -15,7 +16,7 @@ export const authMiddleware = async (
         const authorization = req.headers.authorization;
 
         if (!authorization) {
-            throw new Error(
+            throw new UnauthorizedError(
                 "Authorization header missing",
             );
         }
@@ -34,7 +35,7 @@ export const authMiddleware = async (
             !decoded ||
             typeof decoded === "string"
         ) {
-            throw new Error(
+            throw new UnauthorizedError(
                 "Invalid token",
             );
         }
@@ -47,9 +48,8 @@ export const authMiddleware = async (
         if (
             !key
         ) {
-
-            throw new Error(
-                "Key not found",
+            throw new UnauthorizedError(
+                "Invalid signing key",
             );
         }
 

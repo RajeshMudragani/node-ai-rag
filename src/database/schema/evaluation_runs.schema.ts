@@ -13,6 +13,11 @@ export const evaluationRuns = pgTable(
             uuid("id")
                 .primaryKey(),
 
+        tenantId:
+            uuid(
+                "tenant_id",
+            ).notNull(),
+
         question:
             text(
                 "question",

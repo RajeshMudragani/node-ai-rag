@@ -18,6 +18,10 @@ export const collections = pgTable(
             },
         ).notNull(),
 
+        tenantId: uuid(
+            "tenant_id",
+        ).notNull(),
+
         description: text(
             "description",
         ),

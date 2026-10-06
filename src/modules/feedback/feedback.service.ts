@@ -6,18 +6,23 @@ export class FeedbackService {
     private readonly repository = new FeedbackRepository();
 
     async create(
+        tenantId: string,
         dto: CreateFeedbackDto,
     ) {
 
-        const id = await this.repository.create(dto);
+        const id = await this.repository.create(tenantId, dto);
 
         return {
             id,
         };
     }
 
-    async findAll() {
+    async findAll(
+        tenantId: string,
+    ) {
 
-        return this.repository.findAll();
+        return this.repository.findAll(
+            tenantId,
+        );
     }
 }

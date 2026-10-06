@@ -11,6 +11,7 @@ import evaluationRouter from "./evaluation/evaluation.routes.js";
 import feedbackRouter from "./feedback/feedback.router.js";
 import usersRouter from "./users/users.router.js";
 import authRouter from "./auth/auth.router.js";
+import tenantsRouter from "./tenants/tenants.router.js";
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.use("/evaluations", evaluationRouter);
 router.use("/feedback", feedbackRouter);
 router.use("/users", usersRouter);
 router.use("/auth", authRouter);
+router.use("/tenants", tenantsRouter);
 
 export default router;

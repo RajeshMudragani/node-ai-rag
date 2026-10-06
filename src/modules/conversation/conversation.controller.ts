@@ -1,8 +1,5 @@
-import {
-    Request,
-    Response,
-    NextFunction,
-} from "express";
+import { Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../auth/interfaces/authenticated-request.interface.js";
 import { ConversationService } from "./conversation.service.js";
 import { successResponse } from "../../common/types/index.js";
 import { HTTP_STATUS } from "../../constants/http.constants.js";
@@ -14,7 +11,7 @@ export class ConversationController {
     private readonly service = new ConversationService();
 
     getConversations = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -28,6 +25,7 @@ export class ConversationController {
             } = ListConversationsDtoSchema.parse(req.query);
 
             const result = await this.service.getConversations(
+                req.tenantId!,
                 page,
                 pageSize,
                 search,
@@ -50,15 +48,16 @@ export class ConversationController {
         }
     };
 
-    getConversation = async (
-        req: Request,
+    getConversationById = async (
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const result = await this.service.getConversation(
+            const result = await this.service.getConversationById(
+                req.tenantId!,
                 String(req.params.id),
             );
 
@@ -75,14 +74,14 @@ export class ConversationController {
     };
 
     deleteConversation = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            await this.service.deleteConversation(String(req.params.id));
+            await this.service.deleteConversation(req.tenantId!, String(req.params.id));
 
             res.status(
                     HTTP_STATUS.OK,
@@ -99,7 +98,7 @@ export class ConversationController {
     };
 
     renameConversation = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -109,6 +108,7 @@ export class ConversationController {
             const body = RenameConversationDtoSchema.parse(req.body);
 
             await this.service.renameConversation(
+                req.tenantId!,
                 String(req.params.id),
                 body.title,
             );
@@ -123,9 +123,7 @@ export class ConversationController {
             );
 
         } catch (error) {
-
             next(error);
-
         }
     };
 }

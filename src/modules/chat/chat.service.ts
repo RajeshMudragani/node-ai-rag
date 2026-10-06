@@ -3,14 +3,8 @@ import { PromptBuilderService } from "./prompt-builder.service.js";
 import { ChatResponse } from "./interfaces/chat-response.interface.js";
 import { OllamaService } from "../llm/ollama.service.js";
 import { PromptType } from "./chat.constants.js";
-
-import {
-    ConversationService,
-} from "../conversation/index.js";
-
-import {
-    QueryRewriterService,
-} from "../query-rewriter/query-rewriter.service.js";
+import { ConversationService } from "../conversation/index.js";
+import { QueryRewriterService } from "../query-rewriter/query-rewriter.service.js";
 
 export class ChatService {
 
@@ -24,16 +18,19 @@ export class ChatService {
         question: string,
         topK: number,
         promptType: PromptType,
+        tenantId: string,
         conversationId?: string,
     ): Promise<ChatResponse> {
 
         const isNewConversation = !conversationId;
 
         const currentConversationId = await this.conversationService.ensureConversation(
+            tenantId,
             conversationId,
         );
 
         const history = await this.conversationService.getHistory(
+            tenantId,
             currentConversationId,
         );
 
@@ -45,6 +42,7 @@ export class ChatService {
         const builtContext = await this.retrievalService.retrieveContext(
             rewrittenQuery,
             topK,
+            tenantId,
         );
 
         const prompt = this.promptBuilder.build(
@@ -70,6 +68,7 @@ export class ChatService {
 
         if (isNewConversation) {
             await this.conversationService.generateAndSaveTitle(
+                tenantId,
                 currentConversationId,
                 question,
             );
@@ -90,6 +89,7 @@ export class ChatService {
         question: string,
         topK: number,
         promptType: PromptType,
+        tenantId: string,
         onToken: (
             token: string,
         ) => void,
@@ -102,10 +102,12 @@ export class ChatService {
         const isNewConversation = !conversationId;
 
         const currentConversationId = await this.conversationService.ensureConversation(
+            tenantId,
             conversationId,
         );
 
         const history = await this.conversationService.getHistory(
+            tenantId,
             currentConversationId,
         );
 
@@ -117,6 +119,7 @@ export class ChatService {
         const builtContext = await this.retrievalService.retrieveContext(
             rewrittenQuery,
             topK,
+            tenantId,
         );
 
         const prompt = this.promptBuilder.build(
@@ -146,6 +149,7 @@ export class ChatService {
         ) {
 
             await this.conversationService.generateAndSaveTitle(
+                tenantId,
                 currentConversationId,
                 question,
             );

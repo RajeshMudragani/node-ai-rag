@@ -6,13 +6,14 @@ import {
 import { successResponse } from "../../common/types/index.js";
 import { FeedbackService } from "./feedback.service.js";
 import { CreateFeedbackDtoSchema } from "./dto/create-feedback.dto.js";
+import { AuthenticatedRequest } from "../auth/interfaces/authenticated-request.interface.js";
 
 export class FeedbackController {
 
     private readonly service = new FeedbackService();
 
     create = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
@@ -21,7 +22,7 @@ export class FeedbackController {
 
             const dto = CreateFeedbackDtoSchema.parse(req.body);
 
-            const result = await this.service.create(dto);
+            const result = await this.service.create(req.tenantId!, dto);
 
             res.json(
                 successResponse(
@@ -29,9 +30,7 @@ export class FeedbackController {
                 ),
             );
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
             next(
                 error,
             );
@@ -39,14 +38,14 @@ export class FeedbackController {
     };
 
     findAll = async (
-        _req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ) => {
 
         try {
 
-            const result = await this.service.findAll();
+            const result = await this.service.findAll(req.tenantId!);
 
             res.json(
                 successResponse(
@@ -54,9 +53,7 @@ export class FeedbackController {
                 ),
             );
 
-        } catch (
-            error
-        ) {
+        } catch (error) {
             next(
                 error,
             );

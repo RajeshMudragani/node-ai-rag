@@ -4,13 +4,14 @@ import { IngestionService } from "../ingestion/ingestion.service.js";
 import { HTTP_STATUS } from "../../constants/http.constants.js";
 import { successResponse } from "../../common/types/index.js";
 import { BadRequestError } from "../../common/errors/index.js";
+import { AuthenticatedRequest } from "../auth/interfaces/authenticated-request.interface.js";
 
 export class DocumentsController {
     private readonly documentsService = new DocumentsService();
     private readonly ingestionService = new IngestionService();
 
     upload = async (
-        req: Request,
+        req: AuthenticatedRequest,
         res: Response,
         next: NextFunction,
     ): Promise<void> => {
@@ -45,18 +46,18 @@ export class DocumentsController {
         }
     };
 
-    findAll = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    findAll = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const documents = await this.documentsService.findAll();
+            const documents = await this.documentsService.findAll(req.tenantId!);
             res.status(HTTP_STATUS.OK).json(successResponse(documents));
         } catch (error) {
             next(error);
         }
     };
 
-    findById = async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
+    findById = async (req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> => {
         try {
-            const document = await this.documentsService.findById(req.params.id);
+            const document = await this.documentsService.findById(req.tenantId!, String(req.params.id));
             res.status(HTTP_STATUS.OK).json(successResponse(document));
         } catch (error) {
             next(error);

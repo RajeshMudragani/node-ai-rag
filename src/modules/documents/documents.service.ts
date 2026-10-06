@@ -14,6 +14,7 @@ export class DocumentsService {
 
     async upload(
         file: Express.Multer.File,
+        tenantId: string,
         collectionName?: string,
         metadata?: Record<string, string>,
     ) {
@@ -24,7 +25,7 @@ export class DocumentsService {
             collectionName &&
             collectionName.trim()
         ) {
-            collectionId = await this.collectionsService.findOrCreate(collectionName.trim());
+            collectionId = await this.collectionsService.findOrCreate(tenantId, collectionName.trim());
         }
 
         const extension = file.originalname.split(".").pop();
@@ -42,6 +43,7 @@ export class DocumentsService {
             );
 
         const document = await this.documentsRepository.create({
+            tenantId,
             filename: file.originalname,
             mimeType: file.mimetype,
             storageKey,
@@ -66,20 +68,23 @@ export class DocumentsService {
     }
 
     async findById(
+        tenantId: string,
         documentId: string,
     ) {
 
-        const document = await this.documentsRepository.findById(documentId);
+        const document = await this.documentsRepository.findById(tenantId, documentId);
 
         if (!document) {
             throw new NotFoundError(
-                "Document",
+                "Document not found.",
             );
         }
         return document;
     }
 
-    async findAll() {
-        return this.documentsRepository.findAll();
+    async findAll(tenantId: string) {
+        return this.documentsRepository.findAll(
+            tenantId
+        );
     }
 }

@@ -5,6 +5,7 @@ export const RegisterDtoSchema = z.object({
         password: z.string().min(8),
         firstName: z.string().min(1),
         lastName: z.string().min(1),
+        tenantId: z.string().uuid(),
     });
 
 export type RegisterDto = z.infer<typeof RegisterDtoSchema>;

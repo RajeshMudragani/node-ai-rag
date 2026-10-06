@@ -112,6 +112,7 @@ export class AuthService {
             id: string;
             email: string;
             role: string;
+            tenantId: string | null;
         },
     ): Promise<AuthResponse> {
 
@@ -130,6 +131,7 @@ export class AuthService {
                 role: user.role,
                 kid: activeKey.kid,
                 typ: ACCESS_TOKEN_TYPE,
+                tenantId: user.tenantId,
             },
             activeKey.privateKey,
             accessTokenOptions,
@@ -148,6 +150,7 @@ export class AuthService {
                 role: user.role,
                 kid: activeKey.kid,
                 typ: REFRESH_TOKEN_TYPE,
+                tenantId: user.tenantId,
             },
             activeKey.privateKey,
             refreshTokenOptions,
