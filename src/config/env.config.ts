@@ -36,6 +36,19 @@ const envSchema = z.object({
     JWT_ACCESS_EXPIRES_IN: z.enum(["15m", "30m", "1h", "12h"]),
     JWT_REFRESH_EXPIRES_IN: z.enum(["7d", "30d"]),
 
+    RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
+    RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+
+    AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+    CHAT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+    EVALUATION_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+    UPLOAD_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+
+    AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
+    CHAT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
+    EVALUATION_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
+    UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
+
 });
 
 
