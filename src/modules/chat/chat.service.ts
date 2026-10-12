@@ -79,8 +79,6 @@ export class ChatService {
             conversationId: currentConversationId,
             promptType,
             sources: builtContext.sources,
-
-            // TEMPORARY
             rewrittenQuery,
         };
     }

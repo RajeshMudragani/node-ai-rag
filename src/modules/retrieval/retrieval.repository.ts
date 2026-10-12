@@ -19,12 +19,12 @@ export class RetrievalRepository {
 
         const similarity =
             sql<number>`
-                1 -
-                (
-                    ${documentChunks.embedding}
-                    <=>
-                    ${queryVector}::vector
-                )
+                1 - (${documentChunks.embedding} <=> ${queryVector}::vector)
+            `;
+
+        const distance =
+            sql<number>`
+                ${documentChunks.embedding} <=> ${queryVector}::vector
             `;
 
         const tenantCondition =
@@ -78,9 +78,8 @@ export class RetrievalRepository {
                         )
                         : tenantCondition,
                 )
-                .limit(
-                    limit,
-                );
+                .orderBy(distance)
+                .limit(limit);
 
         return rows.map(
             row => ({
@@ -183,9 +182,6 @@ export class RetrievalRepository {
         >,
     ): Promise<string[]> {
 
-        console.log({
-            repositoryTenantId: tenantId,
-        });
         let whereConditions =
             sql`
                 d.tenant_id =

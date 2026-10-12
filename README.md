@@ -44,6 +44,7 @@ This project is a complete, self-hosted RAG backend. You own the data, you own t
 
 ## Features
 
+- **Authentication** — JWT (RS256) with per-tenant isolation. All document and chat routes require a Bearer token
 - **Document ingestion** — Upload PDF, TXT, Markdown, and DOCX files
 - **Automatic chunking** — Documents are split into overlapping chunks for better retrieval coverage
 - **Vector embeddings** — Each chunk is converted to a numerical vector using Ollama's embedding models
@@ -51,6 +52,7 @@ This project is a complete, self-hosted RAG backend. You own the data, you own t
 - **Query rewriting** — Short follow-up questions are automatically expanded using conversation history before searching
 - **Multi-turn conversations** — Conversation memory is maintained per session via a unique `conversationId`
 - **Multiple prompt modes** — Choose between `default`, `strict` (evidence-only), and `concise` (bullet points) response styles
+- **Async ingestion** — Document processing runs in a BullMQ background worker. Upload returns immediately; poll for `READY` status
 - **Fully local** — Runs entirely on your own infrastructure using Ollama. No OpenAI API keys, no data leaving your network
 - **Structured error handling** — Every error returns a consistent JSON shape with typed error codes
 - **Production-ready** — Graceful shutdown, structured logging with Pino, request ID tracing, Helmet security headers
@@ -69,20 +71,24 @@ This is how a document goes from a raw file to a searchable knowledge base.
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        INGESTION PIPELINE                           │
 │                                                                     │
-│  1. Upload        2. Store          3. Extract       4. Chunk       │
-│  ─────────        ───────           ────────         ──────         │
-│  User uploads  →  File saved    →   PDF text     →   Text split     │
-│  PDF via API      to MinIO          extracted        into 1000-char  │
-│                   object store      by pdf-parse      overlapping    │
-│                                                       windows        │
+│  1. Upload        2. Store          3. Queue                        │
+│  ─────────        ───────           ───────                         │
+│  User uploads  →  File saved    →   BullMQ job enqueued (async)    │
+│  file via API     to MinIO          status → PENDING                │
+│                   object store                                      │
 │                                                                     │
-│  5. Embed                    6. Store Vectors                       │
-│  ──────                      ─────────────────                      │
-│  Each chunk sent  →          Chunk + its vector                     │
-│  to Ollama embed             saved to PostgreSQL                    │
-│  model (bge-m3)              with pgvector extension                │
-│  → 1024-dim vector                                                  │
+│  4. Extract       5. Chunk          6. Embed                        │
+│  ────────         ───────           ──────                          │
+│  PDF: pdf-parse →  Text split    →  Each chunk sent to Ollama      │
+│  TXT/MD: utf-8    into 1000-char    embed model (bge-m3)           │
+│  read directly    overlap windows   → 1024-dim vector              │
+│                                                                     │
+│  7. Store Vectors                                                   │
+│  ─────────────────                                                  │
+│  Chunk + its vector saved to PostgreSQL with pgvector              │
+│  status → READY (or FAILED on error)                               │
 └─────────────────────────────────────────────────────────────────────┘
+```
 ```
 
 ### Flow 2 — Chat / Question Answering
@@ -153,6 +159,9 @@ This is what happens every time a user asks a question.
 | Database         | PostgreSQL + pgvector | Stores documents, chunks, and vector embeddings               |
 | Object Storage   | MinIO                 | Stores raw uploaded files (S3-compatible)                     |
 | LLM & Embeddings | Ollama                | Runs LLM (llama3.2) and embedding model (bge-m3) locally      |
+| Job Queue        | BullMQ + ioredis      | Background workers for async document ingestion               |
+| Cache / Sessions | Redis (node-redis)    | Rate limiting, session storage                                |
+| Auth             | JWT (RS256)           | Stateless auth with per-tenant isolation                      |
 | Validation       | Zod v4                | Runtime schema validation for all request bodies and env vars |
 | Logging          | Pino + pino-http      | Structured JSON logging with request tracing                  |
 | Security         | Helmet + CORS         | HTTP security headers                                         |
@@ -210,7 +219,18 @@ ollama pull bge-m3
 
 Verify Ollama is running at `http://localhost:11434`.
 
-### 4. Node.js
+### 4. Redis
+
+Redis is required for BullMQ job queues and rate limiting.
+
+```bash
+docker run -d \
+  --name redis \
+  -p 6379:6379 \
+  redis:7-alpine
+```
+
+### 5. Node.js
 
 Node.js 20 or higher is required.
 
@@ -291,6 +311,43 @@ UPLOAD_MAX_FILE_SIZE_MB=100        # Max file size for document uploads
 
 All routes are prefixed with `/api/v1`.
 
+### Authentication
+
+All document, retrieval, and chat endpoints require a JWT Bearer token.
+
+```
+Authorization: Bearer <accessToken>
+```
+
+Obtain a token via `POST /api/v1/auth/login`. The token encodes the user's `tenantId` — all queries are automatically scoped to that tenant.
+
+---
+
+### Auth
+
+| Method | Endpoint | Auth Required | Description |
+| ------ | -------- | ------------- | ----------- |
+| `POST` | `/api/v1/auth/register` | No | Register a new user under a tenant |
+| `POST` | `/api/v1/auth/login` | No | Login and receive access + refresh tokens |
+| `GET` | `/api/v1/auth/me` | Yes | Returns the decoded JWT payload |
+| `POST` | `/api/v1/auth/refresh` | No | Exchange a refresh token for new tokens |
+| `POST` | `/api/v1/auth/logout` | No | Revoke a refresh token |
+
+**Login Response `200`**
+
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJ...",
+    "refreshToken": "eyJ...",
+    "user": { "id": "uuid", "email": "user@example.com", "role": "ADMIN" }
+  }
+}
+```
+
+---
+
 ### Health
 
 | Method  | Endpoint              | Description                                                          |
@@ -302,18 +359,24 @@ All routes are prefixed with `/api/v1`.
 
 ### Documents
 
+> All document endpoints require `Authorization: Bearer <token>`.
+
 #### Upload a Document
 
 ```
 POST /api/v1/documents/upload
 Content-Type: multipart/form-data
+Authorization: Bearer <token>
 ```
 
-| Field    | Type | Required | Description            |
-| -------- | ---- | -------- | ---------------------- |
-| `file` | File | Yes      | The document to upload |
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `file` | File | Yes | The document to upload |
+| `collectionName` | string | No | Assign to a named collection |
 
 Supported file types: `application/pdf`, `text/plain`, `text/markdown`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`
+
+Ingestion is **asynchronous** — the upload returns immediately with `status: PENDING`. A BullMQ background worker picks up the job and processes it. Poll `GET /documents/:id` to track progress.
 
 **Response `201`**
 
@@ -325,7 +388,8 @@ Supported file types: `application/pdf`, `text/plain`, `text/markdown`, `applica
     "filename": "company-handbook.pdf",
     "mimeType": "application/pdf",
     "storageKey": "documents/2025/01/uuid.pdf",
-    "status": "UPLOADED",
+    "tenantId": "tenant-uuid",
+    "status": "PENDING",
     "metadata": { "size": 204800 },
     "createdAt": "2025-01-15T10:30:00.000Z",
     "updatedAt": "2025-01-15T10:30:00.000Z"
@@ -333,23 +397,18 @@ Supported file types: `application/pdf`, `text/plain`, `text/markdown`, `applica
 }
 ```
 
+Document status lifecycle: `PENDING` → `PROCESSING` → `READY` (or `FAILED`)
+
 ---
 
-#### Process a Document (Trigger Ingestion)
+#### Process a Document (Manual Re-trigger)
 
-After uploading, you must trigger processing to extract text, generate embeddings, and make the document searchable.
+Ingestion runs automatically via the background worker after upload. Use this endpoint to manually re-trigger ingestion, e.g. after a `FAILED` status.
 
 ```
 POST /api/v1/documents/:id/process
+Authorization: Bearer <token>
 ```
-
-This is an async-style operation that runs the full ingestion pipeline:
-
-1. Downloads the file from MinIO
-2. Extracts text (PDF parsing)
-3. Splits into overlapping chunks
-4. Generates an embedding vector for each chunk via Ollama
-5. Stores all chunks + vectors in PostgreSQL
 
 **Response `200`**
 
@@ -364,14 +423,13 @@ This is an async-style operation that runs the full ingestion pipeline:
 }
 ```
 
-Document status lifecycle: `UPLOADED` → `PROCESSING` → `READY` (or `FAILED`)
-
 ---
 
 #### List All Documents
 
 ```
 GET /api/v1/documents
+Authorization: Bearer <token>
 ```
 
 **Response `200`**
@@ -396,6 +454,7 @@ GET /api/v1/documents
 
 ```
 GET /api/v1/documents/:id
+Authorization: Bearer <token>
 ```
 
 **Response `200`** — returns the document record
@@ -407,6 +466,8 @@ GET /api/v1/documents/:id
 
 These endpoints let you search your document knowledge base directly, without going through the chat pipeline. Useful for debugging retrieval quality.
 
+> All retrieval endpoints require `Authorization: Bearer <token>`.
+
 #### Hybrid Search
 
 Returns ranked document chunks matching the query.
@@ -414,6 +475,7 @@ Returns ranked document chunks matching the query.
 ```
 POST /api/v1/retrieval/search
 Content-Type: application/json
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -457,6 +519,7 @@ Same as search but returns the chunks already assembled into a single context st
 ```
 POST /api/v1/retrieval/context
 Content-Type: application/json
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -493,9 +556,12 @@ Content-Type: application/json
 
 The main endpoint. Ask questions in natural language and get answers grounded in your documents.
 
+> Requires `Authorization: Bearer <token>`.
+
 ```
 POST /api/v1/chat
 Content-Type: application/json
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -547,15 +613,17 @@ Content-Type: application/json
 
 ```bash
 # First message — no conversationId needed
-curl -X POST http://localhost:3000/api/v1/chat \
+curl -X POST http://localhost:7892/api/v1/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
   -d '{ "question": "What are React Hooks?" }'
 
 # Response includes: "conversationId": "abc-123"
 
 # Follow-up — pass the conversationId back
-curl -X POST http://localhost:3000/api/v1/chat \
+curl -X POST http://localhost:7892/api/v1/chat \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
   -d '{ "question": "Tell me more about useEffect", "conversationId": "abc-123" }'
 
 # The query rewriter will expand "Tell me more about useEffect"
@@ -572,6 +640,7 @@ Direct access to the embedding model. Useful for testing or building custom sear
 ```
 POST /api/v1/embeddings/generate
 Content-Type: application/json
+Authorization: Bearer <token>
 ```
 
 ```json
@@ -643,12 +712,15 @@ Validation errors (invalid request body) include a `details` array:
 src/
 ├── common/                    # Shared cross-cutting concerns
 │   ├── errors/                # AppError base class + typed HTTP errors
+│   ├── middleware/            # Rate limiting middleware
 │   ├── types/                 # ApiResponse types + successResponse() helper
 │   └── utils/                 # sanitizeText() and other shared utilities
 │
 ├── config/
 │   ├── env.config.ts          # Zod-validated environment schema
-│   └── db.config.ts           # PostgreSQL pool + Drizzle instance
+│   ├── db.config.ts           # PostgreSQL pool + Drizzle instance
+│   ├── redis.config.ts        # node-redis client (cache / rate limiting)
+│   └── bullmq.config.ts       # ioredis connection for BullMQ queues/workers
 │
 ├── constants/
 │   └── http.constants.ts      # HTTP_STATUS and ERROR_CODES enums
@@ -666,15 +738,27 @@ src/
 │   └── request-logger.middleware.ts
 │
 ├── modules/
+│   ├── auth/                  # JWT auth, RS256 signing keys, tenant middleware
+│   │   ├── middleware/        # authMiddleware, tenantMiddleware, roleMiddleware
+│   │   └── auth_key/          # RSA key pair management
 │   ├── chat/                  # Chat pipeline, prompt building, conversation memory
+│   ├── collections/           # Document collection management
 │   ├── context-builder/       # Assembles retrieved chunks into LLM-ready context
 │   ├── documents/             # Document upload, storage, metadata management
 │   ├── embeddings/            # Embedding generation via Ollama
+│   ├── evaluation/            # RAG answer evaluation
+│   ├── feedback/              # User feedback on answers
 │   ├── health/                # Liveness and readiness endpoints
-│   ├── ingestion/             # Text extraction, chunking, embedding pipeline
+│   ├── ingestion/             # Text extraction (PDF + plain text), chunking, embedding pipeline
+│   ├── jobs/
+│   │   ├── queue/             # BullMQ queue definitions + QueueService
+│   │   └── workers/           # document.worker, evaluation.worker, notification.worker
 │   ├── llm/                   # Ollama LLM adapter
 │   ├── query-rewriter/        # Rewrites follow-up questions into standalone queries
-│   └── retrieval/             # Hybrid vector + keyword search
+│   ├── reranker/              # LLM-based result reranker
+│   ├── retrieval/             # Hybrid vector + keyword search
+│   ├── tenants/               # Tenant management (admin only)
+│   └── users/                 # User management
 │
 ├── storage/
 │   └── minio/                 # MinIO client and service
@@ -766,7 +850,7 @@ These are the key constants that control retrieval and generation quality. All a
 | ------------------------ | -------------------------------- | --------------- | --------------------------------------- | ---------------------------------------------- |
 | `CHUNK_SIZE`           | `ingestion.constants.ts`       | `1000` chars  | More context per chunk, fewer chunks    | Less context per chunk, more precise retrieval |
 | `CHUNK_OVERLAP`        | `ingestion.constants.ts`       | `200` chars   | Better boundary coverage, more storage  | Risk of losing context at boundaries           |
-| `MIN_SIMILARITY`       | `retrieval.constants.ts`       | `0.55`        | Fewer but more relevant vector results  | More results but potentially noisy             |
+| `MIN_SIMILARITY`       | `retrieval.constants.ts`       | `0.3`         | Fewer but more relevant vector results  | More results but potentially noisy             |
 | `VECTOR_WEIGHT`        | `retrieval.constants.ts`       | `0.6`         | More semantic, less keyword influence   | More keyword, less semantic influence          |
 | `KEYWORD_WEIGHT`       | `retrieval.constants.ts`       | `0.4`         | More keyword, less semantic influence   | More semantic, less keyword influence          |
 | `MAX_CONTEXT_CHUNKS`   | `context-builder.constants.ts` | `5`           | More context for LLM, higher token cost | Less context, faster and cheaper               |
@@ -775,6 +859,8 @@ These are the key constants that control retrieval and generation quality. All a
 | `PROMPT_HISTORY_LIMIT` | `chat.constants.ts`            | `10` messages | Longer memory, higher token cost        | Shorter memory                                 |
 
 > **Rule of thumb:** If answers are missing relevant information → increase `MAX_CONTEXT_CHUNKS` or `DEFAULT_TOP_K`. If answers are noisy or off-topic → increase `MIN_SIMILARITY` or decrease `VECTOR_WEIGHT`.
+>
+> **Note on `MIN_SIMILARITY`:** The default of `0.3` is tuned for `bge-m3`. This model produces cosine distances in a lower range than models like `text-embedding-ada-002`. If you switch embedding models, re-evaluate this threshold.
 
 ---
 

@@ -22,16 +22,13 @@ export class EvaluationController {
 
             const dto = CreateEvaluationDtoSchema.parse(req.body);
 
-            const result = await this.service.run(
+            const result = await this.service.queueEvaluation(
                 dto.question,
                 dto.expectedAnswer,
                 dto.topK,
                 req.tenantId!,
             );
 
-            console.log({
-                serviceTenantId: req.tenantId,
-            });
 
             res.json(
                 successResponse(

@@ -3,6 +3,8 @@ import multer from "multer";
 
 import { DocumentsController } from "./documents.controller.js";
 import { ALLOWED_MIME_TYPES, UPLOAD_MAX_FILE_SIZE } from "./documents.constants.js";
+import { authMiddleware } from "../auth/middleware/auth.middleware.js";
+import { tenantMiddleware } from "../auth/middleware/tenant.middleware.js";
 
 const router = Router();
 const controller = new DocumentsController();
@@ -20,6 +22,8 @@ const upload = multer({
         }
     },
 });
+
+router.use(authMiddleware, tenantMiddleware);
 
 router.post("/upload", upload.single("file"), controller.upload);
 router.get("/", controller.findAll);

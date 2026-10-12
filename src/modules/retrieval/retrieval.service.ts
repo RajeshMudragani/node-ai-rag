@@ -29,15 +29,31 @@ export class RetrievalService {
         metadata?: Record<string, string>,
     ): Promise<RetrievedChunk[]> {
 
-        console.log({
-            searchTenantId: tenantId,
-        });
         return this.hybridSearch(
             query,
             limit,
             tenantId,
             collectionName,
             metadata,
+            true,
+        );
+    }
+
+    async searchWithoutRerank(
+        query: string,
+        limit: number,
+        tenantId: string,
+        collectionName?: string,
+        metadata?: Record<string, string>,
+    ): Promise<RetrievedChunk[]> {
+
+        return this.hybridSearch(
+            query,
+            limit,
+            tenantId,
+            collectionName,
+            metadata,
+            false,
         );
     }
 
@@ -57,6 +73,8 @@ export class RetrievalService {
             limit,
             tenantId,
             collectionName,
+            undefined,
+            false,
         );
 
         return this.contextBuilder.build(
@@ -69,10 +87,8 @@ export class RetrievalService {
         limit: number,
         tenantId: string,
         collectionName?: string,
-        metadata?: Record<
-            string,
-            string
-        >,
+        metadata?: Record<string, string>,
+        shouldRerank = true,
     ) {
 
         let collectionId: string | undefined;
@@ -85,23 +101,12 @@ export class RetrievalService {
             collectionId = collection?.id;
         }
 
-        console.log({
-            hybridTenantId: tenantId,
-            collectionId,
-            metadata,
-        });
 
         const documentIds = await this.repository.findMatchingDocumentIds(
             tenantId,
             collectionId,
             metadata
         );
-
-        console.log({
-            tenantId,
-            collectionName,
-            collectionId,
-        });
 
         const embeddingResult = await this.embeddingsService.generate(
             query,
@@ -136,6 +141,20 @@ export class RetrievalService {
             keywordResults,
             rerankCandidateCount,
         );
+
+        if (!shouldRerank) {
+
+            return merged
+                .sort(
+                    (a, b) =>
+                        (b.hybridScore ?? 0) -
+                        (a.hybridScore ?? 0),
+                )
+                .slice(
+                    0,
+                    limit,
+                );
+        }
 
         return this.rerankerService.rerank(
             query,

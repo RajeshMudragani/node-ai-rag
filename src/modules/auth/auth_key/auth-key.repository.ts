@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../../../config/db.config.js";
 import { authKeys } from "../../../database/schema/auth_keys.schema.js";
+import { CacheService } from "../../cache/cache.service.js";
 
 type CreateAuthKeyInput =
     Omit<
@@ -10,6 +11,8 @@ type CreateAuthKeyInput =
     >;
 
 export class AuthKeyRepository {
+
+    private readonly cache = new CacheService();
 
     async create(
         data: CreateAuthKeyInput,
@@ -61,6 +64,18 @@ export class AuthKeyRepository {
         kid: string,
     ) {
 
+        const cacheKey = `auth:key:${kid}`;
+
+        const cached = await this.cache.get<
+            typeof authKeys.$inferSelect
+        >(
+            cacheKey,
+        );
+
+        if (cached) {
+            return cached;
+        }
+
         const result = await db
             .select()
             .from(
@@ -74,6 +89,16 @@ export class AuthKeyRepository {
             )
             .limit(1);
 
-        return result[0] ?? null;
+        const key = result[0] ?? null;
+
+        if (key) {
+            await this.cache.set(
+                cacheKey,
+                key,
+                3600,
+            );
+        }
+
+        return key;
     }
 }

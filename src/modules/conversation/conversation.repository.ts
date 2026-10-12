@@ -18,11 +18,16 @@ export class ConversationRepository {
     async createConversation(
         tenantId: string,
         title?: string,
-    ): Promise<string> {
+    ) {
 
         const id = randomUUID();
 
-        await db.insert(conversations).values({id, tenantId, title});
+        await db.insert(conversations)
+            .values({
+                id,
+                tenantId,
+                title,
+            });
 
         return id;
     }

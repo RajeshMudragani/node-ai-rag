@@ -2,11 +2,16 @@ import app from "./app.js";
 import { env } from "./config/env.config.js";
 import { logger } from "./logger/logger.js";
 import { checkDatabaseConnection, pool } from "./config/db.config.js";
-import { AuthKeyService } from "./modules/auth/auth_key/auth-key.service.js";
+import { redis } from "./config/redis.config.js";
+import { startWorkers, closeWorkers } from "./modules/jobs/workers/index.js";
 
 const startServer = async () => {
     try {
         await checkDatabaseConnection();
+
+        await redis.connect();
+
+        startWorkers();
 
         const server = app.listen(env.PORT, () => {
             logger.info(`Server is running on port ${env.PORT}`);
@@ -36,12 +41,19 @@ const startServer = async () => {
                 if (error) {
                     logger.error({ err: error }, "Error while closing HTTP server");
                 } else {
-                    logger.info("HTTP server closed");
+                    logger.warn("HTTP server closed");
                 }
 
                 try {
+                    await closeWorkers();
+
+                    if (redis.isOpen) {
+                        await redis.quit();
+                    }
+
                     await pool.end();
-                    logger.info("PostgreSQL connection pool closed");
+
+                    logger.warn("PostgreSQL connection pool closed");
                     process.exit(error ? 1 : 0);
                 } catch (error) {
                     logger.error({ err: error }, "Error closing PostgreSQL connection pool");

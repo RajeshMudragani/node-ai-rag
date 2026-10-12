@@ -1,9 +1,12 @@
 import { CollectionsRepository } from "./collections.repository.js";
 import { NotFoundError } from "../../common/errors/index.js";
+import { CacheService } from "../cache/cache.service.js";
+import { env } from "../../config/env.config.js";
 
 export class CollectionsService {
 
     private readonly repository = new CollectionsRepository();
+    private readonly cache = new CacheService();
 
     async create(
         tenantId: string,
@@ -47,6 +50,17 @@ export class CollectionsService {
         },
     ) {
 
+        const existing = await this.repository.findById(
+            tenantId,
+            collectionId,
+        );
+
+        if (existing) {
+            await this.cache.del(
+                `collection:name:${tenantId}:${existing.name}`,
+            );
+        }
+
         await this.repository.update(
             tenantId,
             collectionId,
@@ -59,6 +73,17 @@ export class CollectionsService {
         collectionId: string,
     ) {
 
+        const collection = await this.repository.findById(
+            tenantId,
+            collectionId,
+        );
+
+        if (collection) {
+            await this.cache.del(
+                `collection:name:${tenantId}:${collection.name}`,
+            );
+        }
+
         await this.repository.delete(
             tenantId,
             collectionId,
@@ -70,10 +95,36 @@ export class CollectionsService {
         name: string,
     ) {
 
-        return this.repository.findByName(
+        const cacheKey = `collection:name:${tenantId}:${name}`;
+
+        const cached = await this.cache.get<
+            Awaited<
+                ReturnType<
+                    CollectionsRepository["findByName"]
+                >
+            >
+        >(
+            cacheKey,
+        );
+
+        if (cached) {
+            return cached;
+        }
+
+        const collection = await this.repository.findByName(
             tenantId,
             name,
         );
+
+        if (collection) {
+            await this.cache.set(
+                cacheKey,
+                collection,
+                env.CACHE_COLLECTION_TTL_SECONDS,
+            );
+        }
+
+        return collection;
     }
 
     async findOrCreate(

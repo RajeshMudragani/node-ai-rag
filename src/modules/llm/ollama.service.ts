@@ -1,5 +1,8 @@
-import ollama from "ollama";
+import { Ollama } from "ollama";
+import { env } from "../../config/env.config.js";
 import { OLLAMA_LLM_MODEL } from "./llm.constants.js";
+
+const ollama = new Ollama({ host: env.OLLAMA_BASE_URL });
 
 export class OllamaService {
     async generate(prompt: string): Promise<string> {

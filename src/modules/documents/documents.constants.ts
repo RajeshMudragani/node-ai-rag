@@ -1,10 +1,12 @@
 import { env } from "../../config/env.config.js";
 
 export const DOCUMENT_STATUS = {
-    UPLOADED: "UPLOADED",
+    PENDING: "PENDING",
     PROCESSING: "PROCESSING",
-    READY: "READY",
+    COMPLETED: "COMPLETED",
     FAILED: "FAILED",
+    UPLOADED: "UPLOADED",
+    READY: "READY",
 } as const;
 
 export type DocumentStatus = (typeof DOCUMENT_STATUS)[keyof typeof DOCUMENT_STATUS];

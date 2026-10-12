@@ -30,6 +30,7 @@ export class DocumentsController {
 
             const document = await this.documentsService.upload(
                 req.file,
+                req.tenantId!,
                 collectionName,
                 metadata,
             );

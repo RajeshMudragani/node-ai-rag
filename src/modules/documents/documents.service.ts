@@ -5,12 +5,14 @@ import { DOCUMENT_STATUS, STORAGE_KEY_PREFIX } from "./documents.constants.js";
 import { NotFoundError } from "../../common/errors/index.js";
 import { CollectionsService } from "../collections/collections.service.js";
 import { MetadataService } from "../metadata/metadata.service.js";
+import { QueueService } from "../jobs/queue/queue.service.js";
 
 export class DocumentsService {
     private readonly documentsRepository = new DocumentsRepository();
     private readonly minioService = new MinioService();
     private readonly collectionsService = new CollectionsService();
     private readonly metadataService = new MetadataService();
+    private readonly queueService = new QueueService();
 
     async upload(
         file: Express.Multer.File,
@@ -47,11 +49,18 @@ export class DocumentsService {
             filename: file.originalname,
             mimeType: file.mimetype,
             storageKey,
-            status: DOCUMENT_STATUS.UPLOADED,
+            status: DOCUMENT_STATUS.PENDING,
             metadata: {
                 size: file.size,
             },
             collectionId,
+        });
+
+        await this.queueService.enqueueDocument({
+            tenantId,
+            documentId: document.id,
+            storageKey,
+            filename: file.originalname,
         });
 
         if (
@@ -64,7 +73,10 @@ export class DocumentsService {
             );
         }
 
-        return document;
+        return {
+            ...document,
+            status: DOCUMENT_STATUS.PENDING,
+        };
     }
 
     async findById(

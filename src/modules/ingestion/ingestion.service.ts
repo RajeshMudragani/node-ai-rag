@@ -24,8 +24,11 @@ export class IngestionService {
 
         try {
             const buffer = await this.minioService.downloadObjectAsBuffer(document.storageKey);
-            const extractionResult = await this.extractionService.extractPdf(buffer);
-            const chunks = this.chunkingService.chunk(extractionResult.text);
+            const isPdf = document.mimeType === "application/pdf";
+            const text = isPdf
+                ? (await this.extractionService.extractPdf(buffer)).text
+                : buffer.toString("utf-8");
+            const chunks = this.chunkingService.chunk(text);
 
             const chunkInputs = await Promise.all(
                 chunks.map(async (chunk) => {

@@ -49,6 +49,19 @@ const envSchema = z.object({
     EVALUATION_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
     UPLOAD_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
 
+    REDIS_HOST: z.string(),
+    REDIS_PORT: z.coerce.number(),
+    REDIS_PASSWORD: z.string().default(""),
+    REDIS_DB: z.coerce.number().default(0),
+
+    CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().positive().default(300),
+    CACHE_AUTH_KEY_TTL_SECONDS: z.coerce.number().positive().default(3600),
+    CACHE_COLLECTION_TTL_SECONDS: z.coerce.number().positive().default(900),
+    CACHE_RETRIEVAL_TTL_SECONDS: z.coerce.number().positive().default(300),
+
+    WORKER_CONCURRENCY: z.coerce.number().int().positive().default(2),
+    JOB_ATTEMPTS: z.coerce.number().int().positive().default(3),
+    JOB_BACKOFF_DELAY_MS: z.coerce.number().int().positive().default(5000),
 });
 
 

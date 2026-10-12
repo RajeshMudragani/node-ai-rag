@@ -1,16 +1,9 @@
 import { EmbeddingsClient } from "./embeddings.client.js";
-
-import {
-    EXPECTED_EMBEDDING_DIMENSION,
-} from "./embeddings.constants.js";
-
-import {
-    GenerateEmbeddingResult,
-} from "./embeddings.types.js";
+import { EXPECTED_EMBEDDING_DIMENSION } from "./embeddings.constants.js";
+import { GenerateEmbeddingResult } from "./embeddings.types.js";
 
 export class EmbeddingsService {
-    private readonly client =
-        new EmbeddingsClient();
+    private readonly client = new EmbeddingsClient();
 
     async generate(
         text: string,

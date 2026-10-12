@@ -1,7 +1,7 @@
 export const DEFAULT_TOP_K = 5;
 export const MAX_TOP_K = 20;
 
-export const MIN_SIMILARITY = 0.55;
+export const MIN_SIMILARITY = 0.3;
 
 export const MIN_RERANK_CHUNKS = 8;
 
